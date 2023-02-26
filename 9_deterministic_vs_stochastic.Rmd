@@ -1,0 +1,321 @@
+---
+title: "Deterministic vs stochastic models"
+output: pdf_document
+date: '2022-12-08'
+---
+
+
+```{r lab13_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Deterministic vs stochastic mathematical models
+
+We consider a stochastic predator-prey mathematical model of the form
+$$
+\begin{cases}
+dP(t) = [rP(t)(1-\frac{P(t)}{K}) - sP(t)Q(t)]dt + \sigma_1P(t)B(t),\\
+dQ(t) = [-uQ(t) + asP(t)Q(t)]dt + \sigma_2 Q(t)B(t).
+\end{cases}
+$$
+
+We assume that the strength of influencing populations from the environment is the same therefore $\sigma_1 = \sigma_2 = \sigma$. Note that if $\sigma =0$ then we get the deterministic mathematical model analyzed in earlier examples. Models based on stochastic differential equations fit the reality of the modeled phenomena better than deterministic models. This is because in reality the phenomena are affected by many random, unpredictable factors, the effect of which can accumulate over time, significantly affecting the dynamics of the phenomenon. This, in turn, will cause huge differences between stochastic and deterministic models. There are situations when the solutions of deterministic models stablize at a certain level, and stochastic models on the contrary - with a high coefficient of randomness are extremely irregular and unpredictable. For this reason, it is extremely important to analyze the phenomenon under study and take into account the appropriate level of random noise. 
+
+When modeling stochastically, we must take into account the fact that solutions can "explode", that is, they can become unbounded over a finite stretch of time. Mostly this happens when the conditions of the existence theorem and unambiguous growth are not satisfied (among other things, the functions contained in the stochastic differential equation should be Lipschitz and satisfy the linear growth condition). 
+ 
+ 
+We will now conduct an analysis of the predator-prey model in question for a set of parameters
+
+$$
+(P_0, Q_0, r, u, s, a, K) = (0.9, 0.1, 0.5, 0.5, 1.5, 1.1, 1), \quad (T, N) = (80, 10000)
+$$
+
+for different values of $\sigma$ to conduct an analysis of the effect of the stochastic factor on the deterministic model. 
+
+```{r lab13_funkcje, warning= FALSE, echo=FALSE}
+library(ggplot2)
+library(latex2exp)
+
+brown <- function(N, T, s){
+  set.seed(s)
+  b <- cumsum(c(0, sqrt(T/N) * rnorm(N, 0, 1)))
+  b_d <- sqrt(T/N) * rnorm(N, 0, 1)
+  return(list(B = b, delta_B = b_d))
+}
+
+f_x <- function(x, r, K, s, y){
+  return(r*x*(1-x/K) - s*x*y)
+}
+
+g_x <- function(x, sigma){
+  return(sigma * x)
+}
+
+f_y <- function(y, r, u, s, a, x){
+  -u*y + a*s*x*y
+}
+
+g_y <- function(y, sigma){
+  sigma * y
+}
+
+em <- function(r, u, s, a, K, P_0, Q_0,sigma, Ti, N, i=10){
+  
+  t <- seq(0,Ti, Ti/N)
+  B_v <- brown(N, Ti, s=i)
+  B <- B_v$B
+  delta_B <- B_v$delta_B
+
+  P_t <- rep(0, N+1)
+  Q_t <- rep(0, N+1)
+
+
+  P_t[1] <- P_0
+  Q_t[1] <- Q_0
+  delta_t <- Ti/N
+  
+  for (i in 1:N){
+    P_t[i+1] <- P_t[i] + f_x(P_t[i], r, K, s, Q_t[i])*delta_t + g_x(P_t[i], sigma)*delta_B[i]
+    Q_t[i+1] <- Q_t[i] + f_y(Q_t[i], r, u, s, a, P_t[i+1])*delta_t + g_y(Q_t[i], sigma)*delta_B[i]
+  }
+  
+  
+  
+  df = data.frame("t" = t,
+                  "P_t" = P_t,
+                  "Q_t" = Q_t)
+  return(df)
+}
+```
+
+
+```{r lab13_zad7_1, warning= FALSE, echo=FALSE, results='hide', message=FALSE}
+P_0 <- 0.9
+Q_0 <- 0.1
+r <- 0.5
+u <- 0.5
+s <- 1.5
+a <- 1.1
+K <- 1
+sigma <- 0
+Ti <- 80
+N <- 10000
+
+df = data.frame()
+for (sigma in seq(0, 0.05, 0.01)){
+  tmp = em(r, u, s, a, K, P_0, Q_0, sigma, Ti, N, i=15)
+  tmp['sigma'] = sigma
+  df = rbind(df, tmp)
+}
+
+```
+
+First, let's plot the corresponding trajectories by value $\sigma$.
+
+```{r lab13_zad7_1_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE, out.width="50%"}
+
+ggplot(df, aes(t, P_t, col=factor(sigma))) + geom_line() + 
+  ggtitle("Process trajectory P for a fixed event") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$P(t)$")) + 
+ labs(color=TeX("Noise factor"))
+
+ggplot(df, aes(t, Q_t, col=factor(sigma))) + geom_line() + 
+  ggtitle("Process trajectory Q for a fixed event") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$Q(t)$")) +
+   labs(color=TeX("Noise factor"))
+
+ggplot(df, aes(P_t, Q_t, col=factor(sigma))) + geom_path() + 
+  ggtitle(TeX("Phase portrait $P\\sim Q$")) + 
+  xlab(TeX("$P(t)$")) + 
+  ylab(TeX("$Q(t)$")) +
+   labs(color=TeX("Noise factor"))
+
+
+```
+
+In the example above, we have shown the effect of the stochastic factor on the deterministic model. We can see how already a small value of $\sigma$-noise affects the behavior of the trajectory and introduces irregularities. As the value of noise increases, the deviation from the deterministic solution increases. Already for $\sigma = 0.05$ the oscillations appear in other places and the cyclicity of the solutions changes in a sense. Nevertheless, in the phase portrait we can still see how the solution strives towards the deterministic solution, but there are large disturbances in its neighborhood. In general, random noise has a big impact on changing the dynamics of both populations. In the deterministic scenario, we have small fluctuations and rapid convergence, while when the stochastic factor is introduced, both populations experience rapid turbulence, and stabilization is achieved much later. The phenomena of rapid population growth, as well as rapid extinction, can be seen in certain cycles. 
+
+However, the above results are obtained from a single Brownian motion trajectory. To better observe the long-term behavior of the stochastic model, we will perform simulations for the same parameters but different Brownian motion trajectories. In addition, so that the graphs remain readable we will analyze different values of $\sigma$ noise on separate graphs. We will start with a value of $\sigma = 0.01$. 
+
+```{r lab13_zad7_2_sigma1_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE, out.width="50%"}
+P_0 <- 0.9
+Q_0 <- 0.1
+r <- 0.5
+u <- 0.5
+s <- 1.5
+a <- 1.1
+K <- 1
+sigma <- 0.01
+Ti <- 200
+N <- 10000
+
+df = em(r, u, s, a, K, P_0, Q_0, 0, Ti, N, i=5)
+df['Brown'] = 0
+for (i in seq(1, 10, 1)){
+  tmp = em(r, u, s, a, K, P_0, Q_0, sigma, Ti, N, i=10+i)
+  tmp['Brown'] = i
+  df = rbind(df, tmp)
+}
+
+ggplot(df, aes(t, P_t, col=factor(Brown))) + geom_line() + 
+  ggtitle(TeX("Solutions P for noise factor = 0.01 and several realizations of Brownian motion")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$P(t)$")) + 
+    theme(legend.position="none")
+
+ggplot(df, aes(t, Q_t, col=factor(Brown))) + geom_line() + 
+  ggtitle(TeX("Solutions Q for noise factor = 0.01 and several realizations of Brownian motion"))+ 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$Q(t)$")) +
+    theme(legend.position="none")
+
+ggplot(df, aes(P_t, Q_t, col=factor(Brown))) + geom_path() + 
+  ggtitle(TeX("Phase portrait $P\\sim Q$ for noise factor = 0.01 and several realizations of Brownian motion")) + 
+  xlab(TeX("$P(t)$")) + 
+  ylab(TeX("$Q(t)$")) +
+    theme(legend.position="none")
+
+
+```
+
+We can observe that at this value of noise, any periodicity disappears, and any Brownian motion generated does not manifest any patterned behavior relative to the solution trajectory. Nevertheless, an approximate convergence to a deterministic solution is achieved, which we can observe on the phase portrait. On the solution graphs, too, it is evident that in the long run, when the stochastic factor is taken into account, we will be close to the equilibrium point of this system, and we could say that it reflects to the behavior of the deterministic model. Still, as in the example above, there are small oscillations, and the dynamics of the two populations are not clearly defined. We can see how the abundance of both predators and prey increases rapidly in some places, only to then decrease just as rapidly. Let's raise the noise value to $\sigma = 0.05$. 
+
+
+```{r lab13_zad7_2_sigma2_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE, out.width="50%"}
+P_0 <- 0.9
+Q_0 <- 0.1
+r <- 0.5
+u <- 0.5
+s <- 1.5
+a <- 1.1
+K <- 1
+sigma <- 0.05
+Ti <- 200
+N <- 10000
+
+df = em(r, u, s, a, K, P_0, Q_0, 0, Ti, N, i=5)
+df['Brown'] = 0
+for (i in seq(1, 10, 1)){
+  tmp = em(r, u, s, a, K, P_0, Q_0, sigma, Ti, N, i=10+i)
+  tmp['Brown'] = i
+  df = rbind(df, tmp)
+}
+
+ggplot(df, aes(t, P_t, col=factor(Brown))) + geom_line() + 
+  ggtitle(TeX("Solutions P for noise factor = 0.05 and several realizations of Brownian motion")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$P(t)$")) + 
+    theme(legend.position="none")
+
+ggplot(df, aes(t, Q_t, col=factor(Brown))) + geom_line() + 
+  ggtitle(TeX("Solutions Q for noise factor = 0.05 and several realizations of Brownian motion"))+ 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$Q(t)$")) +
+    theme(legend.position="none")
+
+ggplot(df, aes(P_t, Q_t, col=factor(Brown))) + geom_path() + 
+  ggtitle(TeX("Phase portrait $P\\sim Q$ for noise factor = 0.05 and several realizations of Brownian motion")) + 
+  xlab(TeX("$P(t)$")) + 
+  ylab(TeX("$Q(t)$")) +
+    theme(legend.position="none")
+
+
+```
+
+The solutions have changed drastically despite the relatively small increase in noise values. The solution trajectories show significantly increased amplitudes with increased irregularity compared to the earlier example. In the prey population, these are noticeable to a greater extent than in the predator population. In the phase portrait, we can see how solutions with a stochastic factor begin to diverge from the deterministic solution. Still, with much larger fluctuations, they are eventually around a certain equilibrium point considering the higher level of deviation. Nevertheless, we are no longer able to say that these solutions reflect the behavior of the deterministic model. We can still see periodic increases in abundance occurring alternately with extinction events among populations. Let's increase the noise factor more dramatically to a level of $\sigma=0.5$. 
+
+```{r lab13_zad7_2_sigma3_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE, out.width="50%"}
+P_0 <- 0.9
+Q_0 <- 0.1
+r <- 0.5
+u <- 0.5
+s <- 1.5
+a <- 1.1
+K <- 1
+sigma <- 0.5
+Ti <- 200
+N <- 10000
+
+df = em(r, u, s, a, K, P_0, Q_0, 0, Ti, N, i=5)
+df['Brown'] = 0
+for (i in seq(1, 10, 1)){
+  tmp = em(r, u, s, a, K, P_0, Q_0, sigma, Ti, N, i=10+i)
+  tmp['Brown'] = i
+  df = rbind(df, tmp)
+}
+
+ggplot(df, aes(t, P_t, col=factor(Brown))) + geom_line() + 
+  ggtitle(TeX("Solutions P for noise factor = 0.5 and several realizations of Brownian motion")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$P(t)$")) + 
+    theme(legend.position="none")
+
+ggplot(df, aes(t, Q_t, col=factor(Brown))) + geom_line() + 
+  ggtitle(TeX("Solutions Q for noise factor = 0.5 and several realizations of Brownian motion")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$Q(t)$")) +
+    theme(legend.position="none")
+
+ggplot(df, aes(P_t, Q_t, col=factor(Brown))) + geom_path() + 
+  ggtitle(TeX("Phase portrait $P\\sim Q$ for noise factor = 0.5 and several realizations of Brownian motion")) + 
+  xlab(TeX("$P(t)$")) + 
+  ylab(TeX("$Q(t)$")) +
+    theme(legend.position="none")
+
+
+```
+
+Here we are no longer able to see the behavior of the deterministic model to any degree. The amplitudes of the solutions have increased dramatically without the slightest regularity. Moreover, the solutions do not seem to disappear over time as they did in the previous examples. A much higher frequency of perturbations appeared in the predator population than in the prey population where huge fluctuations are less frequent. In the phase portrait, we see no convergence to a certain equilibrium point, as the values obtained have become completely random. The above example illustrates how an excessive degree of randomness in the model can completely muddy the actual deterministic solution. 
+
+
+In the next step, we will examine the distribution of $1000$ sample solutions of the stochastic model at the end of the time interval. We will consider numerical parameters $(T, N) = (50, 1000)$ for this purpose, so we will generate $1000$ trajectories of solutions for the values of the noise parameter $\sigma \in \{0.05, 0.1, 0.3, 0.5\}$ and the model parameters from the previous examples.
+
+```{r lab13_zad7_3, echo=FALSE, message=FALSE, warning=FALSE, out.width="50%", results='hide'}
+P_0 <- 0.9
+Q_0 <- 0.1
+r <- 0.5
+u <- 0.5
+s <- 1.5
+a <- 1.1
+K <- 1
+sigma <- 0
+Ti <- 50
+N <- 10000
+
+sample <- 1000
+
+df = data.frame()
+for (j in 1:sample){
+  for (sigma in c(0.05, 0.1, 0.3, 0.5)){
+    tmp = em(r, u, s, a, K, P_0, Q_0, sigma, Ti, N, i=j)
+    tmp['sigma'] = sigma
+    tmp = tmp[tmp$t == Ti, ]
+    df = rbind(df, tmp)
+  }
+}
+
+df_p = df[df$t == Ti, c("P_t", "sigma")]
+df_q = df[df$t == Ti, c("Q_t", "sigma")]
+```
+
+
+```{r lab13_zad7_3_hist, echo=FALSE, results='hide', message=FALSE, warning=FALSE, out.width="50%"}
+
+ggplot(df_p, aes(P_t, fill=factor(sigma))) + geom_histogram(bins=100, alpha=0.5) + 
+  ggtitle(TeX("Histogram of distribution of 1000 trajectories of solution $P$ for $t=50$")) + 
+  xlab(TeX("$P(50)$")) + 
+  ylab(TeX("$Density$")) +
+  labs(fill=TeX("Noise factor"))
+
+ggplot(df_q, aes(Q_t, fill=factor(sigma))) + geom_histogram(bins=100, alpha=0.5) + 
+  ggtitle(TeX("Histogram of distribution of 1000 trajectories of solution $Q$ for $t=50$")) + 
+  xlab(TeX("$Q(50)$")) + 
+  ylab(TeX("$Density$"))+
+  labs(fill=TeX("Noise factor"))
+```
+
+
+
+We can see that for low values of the noise $\sigma \in \{0.05, 0.1\}$ the values accumulate around the point $P^* \approx 0.3$ for $P$ solutions and $Q^* \approx 0.25$ for $Q^*$ solutions. If we go back to previous analyses, including the first visualization of the trajectory, we see that these points are approximations of the equilibrium points of the deterministic model under consideration. Thus, the solution will still converge to the equilibrium point of the deterministic model in most cases, so in a sense it replicates its behavior. However, we cannot say this for higher values of $\sigma \in \{0.3, 0.5\}$. Then, for $P$ solutions, the points are more spread out over the entire interval $[0, 0.5]$, and for $Q$ solutions they are concentrated at the zero value. Such a scenario would mean that the predator population would remain at a certain level and the prey population would die out, which is not consistent with the interpretation of the Predator-Prey model, since predators need food to survive. So here, too, the excessive randomness factor completely disturbs the model's behavior and the total distribution interpretation is consistent with the earlier analysis. 

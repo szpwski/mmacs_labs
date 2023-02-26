@@ -1,0 +1,650 @@
+---
+title: "Custom Mickens-type model"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-24"
+---
+
+```{r lab6_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Custom Mickens-type numerical model.
+
+In what follows, we consider the predator-prey type model in the context of two differential equations (continuous type model), i.e.
+
+\begin{align*}
+\frac{dP}{dt}&= rP(1-\frac{P}{K}) - sPQ = f_1(P, Q) \\
+\frac{dQ}{dt}&= -uQ + asPQ = f_2(P,Q)
+\end{align*}
+
+
+Such a mathematical model described by a differential problem, we are able to write in the form:
+$$\frac{dx}{dt} = f_+(x) - xf_-(x)$$
+where $f_+, f_-: \mathbb{R}^m_{+} \bigcup \{0\} \rightarrow \mathbb{R}^m_{+} \bigcup \{0\}$ are $C^1$ class. We can approximate such a model with a non-standard differential scheme of the form:
+$$
+x_{n+1} = \frac{x_n  + \phi(\Delta t; p)f_+(x_n)}{1 + \phi(\Delta t; p)f_-(x_n)}
+$$
+Such a numerical model is unconditionally convergent regardless of the time step $\Delta t$ unlike previous numerical methods as shown in labs 4 and 5. When obtaining functions $f_+$ and $f_-$ with positive values and starting from a non-negative value $x(t_0) = x_0 \geq 0$ guarantee non-negative values. We can write our dynamic system as
+
+\begin{align*}
+\frac{dP}{dt}&= rP - P(r\frac{P}{K} + sQ)\\
+\frac{dQ}{dt}&= asPQ - Qu
+\end{align*}
+
+Note that we can write the first equation in the desired form:
+$$\frac{P_{n+1} - P_n}{\Delta t} = rP_n - P_{n+1}(r\frac{P_n}{K} + sQ_n).$$
+We can transform such an equation to the following discrete system assuming a trivial step function $\phi(\Delta t;p) = \Delta t$:
+$$P_{n+1} = \frac{P_n + \Delta t\cdot rP_n}{1 + \Delta t\cdot (r\frac{P_n}{K} + sQ_n)}$$
+On the other hand, we can write the second equation in the form
+$$\frac{Q_{n+1} - Q_n}{\Delta t} = asP_nQ_n - Q_{n+1}u$$
+and transforming as:
+$$Q_{n+1} = \frac{Q_n + \Delta t\cdot (asP_nQ_n)}{1 + \Delta t\cdot (u)}$$
+Let's implement these numerical methods and check the solutions. 
+
+```{r lab6_functions_definition, warning= FALSE, echo=FALSE}
+library(ggplot2)
+
+f1 <- function(p, q, r, u, s, a, K){
+  res <- r*p*(1-p/K) - s*p*q
+  return(res)
+}
+
+f2 <- function(p, q, r, u, s, a, K){
+  res <- -u*q  + a*s*p*q
+  return(res)
+}
+
+rk4 <- function(p_0,q_0,r, u, s, a, K, Ti, delta){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #Ti - time
+  #delta - step
+  
+  N <- round(Ti/delta,0)
+  
+  # declare list to store results
+  p <- rep(0, N+1)
+  q <- rep(0, N+1)
+  k1p <- rep(0, N+1)
+  k1q <- rep(0, N+1)
+  k2p <- rep(0, N+1)
+  k2q <- rep(0, N+1)
+  k3p <- rep(0, N+1)
+  k3q <- rep(0, N+1)
+  k4p <- rep(0, N+1)
+  k4q <- rep(0, N+1)
+  
+  timestamp <- rep(0, N+1)
+  
+  p[1] <- p_0
+  q[1] <- q_0
+  
+  k1p[1] <- f1(p[1], q[1], r, u, s, a, K)
+  k1q[1] <- f2(p[1], q[1], r, u, s, a, K)
+  
+  k2p[1] <- f1(p[1] + delta/2*k1p[1], q[1]+delta/2*k1q[1], r, u, s, a, K)
+  k2q[1] <- f2(p[1] + delta/2*k1p[1], q[1]+delta/2*k1q[1], r, u, s, a, K)
+  
+  k3p[1] <- f1(p[1] + delta/2*k2p[1], q[1]+delta/2*k2q[1], r, u, s, a, K)
+  k3q[1] <- f2(p[1] + delta/2*k2p[1], q[1]+delta/2*k2q[1], r, u, s, a, K)
+  
+  k4p[1] <- f1(p[1] + delta*k3p[1], q[1]+delta*k3q[1], r, u, s, a, K)
+  k4q[1] <- f2(p[1] + delta*k3p[1], q[1]+delta*k3q[1], r, u, s, a, K)
+  
+  for (i in (1 + 1):(N+1)){
+    
+    p[i] <- p[i-1] + delta/6*(k1p[i-1] + 2*k2p[i-1] + 2*k3p[i-1] + k4p[i-1])
+    
+    q[i] <- q[i-1] + delta/6*(k1q[i-1] + 2*k2q[i-1] + 2*k3q[i-1] + k4q[i-1])
+    
+    k1p[i] <- f1(p[i], q[i], r, u, s, a, K)
+    k1q[i] <- f2(p[i], q[i], r, u, s, a, K)
+    
+    k2p[i] <- f1(p[i] + delta/2*k1p[i], q[i]+delta/2*k1q[i], r, u, s, a, K)
+    k2q[i] <- f2(p[i] + delta/2*k1p[i], q[i]+delta/2*k1q[i], r, u, s, a, K)
+    
+    k3p[i] <- f1(p[i] + delta/2*k2p[i], q[i]+delta/2*k2q[i], r, u, s, a, K)
+    k3q[i] <- f2(p[i] + delta/2*k2p[i], q[i]+delta/2*k2q[i], r, u, s, a, K)
+    
+    k4p[i] <- f1(p[i] + delta*k3p[i], q[i]+delta*k3q[i], r, u, s, a, K)
+    k4q[i] <- f2(p[i] + delta*k3p[i], q[i]+delta*k3q[i], r, u, s, a, K)
+
+
+    
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, N = timestamp, P = p, Q = q))
+  
+  
+  
+  return(result)
+}
+
+model <- function(p_0,q_0,r, u, s, a, K, N, delta, step_type){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #N - number of generations
+  #delta - step
+  #step_type - type of step function
+  
+  step_function <- function(delta, p, step_type = step_type){
+    if(step_type == 'trywialna'){
+      return(delta)
+    } else if (step_type == 'nietrywialna'){
+      return((exp(delta*p) - 1)/p)
+    }
+  }
+  
+  
+  # declare list to store results
+  p <- rep(0, N+delta)
+  q <- rep(0, N+delta)
+  timestamp <- rep(0, N + delta)
+  
+  p[1] = p_0
+  q[1] = q_0
+  
+  for (i in (2):(N+delta)){
+    i <- round(i)
+    
+    p[i] <- (
+              p[i-1] + step_function(delta, r, step_type)*r*p[i-1]
+            )/(
+              1+step_function(delta, r, step_type)*(r*p[i-1]/K + s*q[i-1])
+              )
+    
+    q[i] <- (q[i-1] + step_function(delta, u, step_type)*(a*s*p[i-1]*q[i-1])
+             )/(
+               1+step_function(delta, u, step_type)*u)
+    
+   
+    
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, N = timestamp, P = p, Q = q))
+  
+  
+  
+  return(result)
+}
+```
+In the first place for the parameters:
+
+a) $T = 1000, \Delta t=0.1$.
+```{r lab6_simulation_1, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 0.1
+
+s6_ct <- model(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+```
+```{r lab6_plotting_simulation_1, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,50) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,50) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+We see that for the given time step the discretization of the initial dynamical system is correct. Simulation-wise, we get the desired solutions, i.e. P and Q are moving towards a stable equilibrium point $(0.2,0.48)$. Let's check the larger time step.
+
+b) $T = 1000, \Delta t=1.1$.
+```{r lab6_simulation_2, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 1.1
+
+s6_ct <- model(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+```
+
+```{r lab6_plotting_simulation_2, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point() + ggtitle("Phase portrait")
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,200) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,200) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+We can see that although the solutions strive for a stable equilibrium point they fall into oscillatory motion and are not stable. It takes a large number of iterations for them to reach convergence. Let's see what happens for an even larger time step, assume:
+
+c) $T = 1000, \Delta t=3.2$.
+```{r lab6_simulation_3, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 3.1
+
+s6_ct <- model(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+
+```
+
+```{r lab6_plotting_simulation_3, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+We see that now the solutions have not reached convergence at all despite the discretization. Looking for the reason for this behavior, we will come to the way the discretization of the given dynamical system was implemented. It is incorrect because it is two processes that have been discretized separately and do not interact with each other. So we will make a minor change in the program so that the process $Q$ is dependent at time $n$ on the process $P$ also at time $n$, rather than at $n-1$. So we assume the following dynamic system after discretization:
+$$P_{n+1} = \frac{P_n + \Delta t\cdot rP_n}{1 + \Delta t\cdot (r\frac{P_n}{K} + sQ_n)}$$
+$$Q_{n+1} = \frac{Q_n + \Delta t\cdot (asP_{n+1}Q_n)}{1 + \Delta t\cdot (u)}$$
+
+```{r lab6_model_fix, warning= FALSE, echo=FALSE}
+library(ggplot2)
+
+model_fixed <- function(p_0,q_0,r, u, s, a, K, N, delta, step_type){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #N - number of generations
+  #delta - step
+  #step_type - type of step function
+  
+  step_function <- function(delta, p, step_type = step_type){
+    if(step_type == 'trywialna'){
+      return(delta)
+    } else if (step_type == 'nietrywialna'){
+      return((exp(delta*p) - 1)/p)
+    }
+  }
+  
+  
+  # declare list to store results
+  p <- rep(0, N+delta)
+  q <- rep(0, N+delta)
+  timestamp <- rep(0, N + delta)
+  
+  p[1] = p_0
+  q[1] = q_0
+  
+  for (i in (2):(N+delta)){
+    i <- round(i)
+    
+    p[i] <- (
+              p[i-1] + step_function(delta, r, step_type)*r*p[i-1]
+            )/(
+              1+step_function(delta, r, step_type)*(r*p[i-1]/K + s*q[i-1])
+              )
+    
+    q[i] <- ((q[i-1] + step_function(delta, u, step_type)*(a*s*p[i]*q[i-1])
+             )/(
+               1+step_function(delta, u, step_type)*u))
+     
+    
+    
+   
+    
+
+    
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, N = timestamp, P = p, Q = q))
+  
+  
+  
+  return(result)
+}
+```
+
+Let's check again for the time step 
+
+b) $T = 1000, \Delta t=1.1$.
+
+```{r lab6_simulation_4, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 1.1
+
+s6_ct <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+```
+
+```{r lab6_plotting_simulation_4, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,50) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,50) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+Here we see that convergence is achieved much faster than before. Let's see if it will be achieved at all for the next example. 
+
+c) $T = 1000, \Delta t=3.2$.
+
+```{r lab6_simulation_5, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 3.2
+
+s6_ct <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+```
+
+```{r lab6_plotting_simulation_5, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+As you can see, the solutions reach convergence to the desired equilibrium point. The second implementation includes the compatibility of the dynamics of the two processes according to continuous time therefore reaches convergence to the solutions. Let's see for an even larger time step.
+
+d)  $T = 1000, \Delta t=5$.
+```{r lab6_simulation_6, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 5
+
+s6_ct <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+```
+
+```{r lab6_plotting_simulation_6, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+Convergence has been achieved and in this case, but it can be seen that some small oscillations of the solutions are introduced so more iterations are probably already needed. Let's assume, then, some arbitrarily large step and test the method.
+
+e)  $T = 1000, \Delta t=10$.
+
+```{r lab6_simulation_7, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 50
+
+s6_ct <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta, step_type='trywialna')
+dfs6_ct <- data.frame(N = s6_ct$N, P = s6_ct$P, Q = s6_ct$Q,Krok = rep("Trivial", nrow(s6_ct)))
+```
+
+```{r lab6_plotting_simulation_7, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_ct, aes(P, Q, col=Krok)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs6_ct, aes(N, P, col=Krok)) + geom_line() + xlim(0,1000) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_ct, aes(N, Q, col=Krok)) + geom_line() + xlim(0,1000) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+For such a large time step, we can see the slowness of reaching the stability point. Convergence is reached after more than 1000 iterations. Nevertheless, the discretization still maintains stability and the system converges to a solution.
+
+Let's also try to find a non-trivial time step function $\phi(\Delta t;p)$ that will help describe the dynamics in our equation. To do this, let's return to our initial equation
+$$
+\frac{dP}{dt} = rP - P(r\frac{P}{K} + sQ) = rP(1 - \frac{P}{K}) + sPQ
+$$
+Note that it is similar to a logistic equation of the form 
+$$\frac{dy}{dt} = \lambda y(1-y)$$
+where we would only have a simple scaling relative to our equation. Thus, we can expect similar dynamics of the two equations and use the construction of a non-trivial step function for the logistic equation. In this case, we consider (using the implicit Euler method) a numerical solution of the form 
+$$y_{k+1} = \frac{1}{1 + \lambda h}y_k,$$
+where the significant factor depending on the parameter $1+ \lambda h$ can be written in the form 
+$$1 + \lambda h = e^{\lambda h} + O(\lambda^2 h^2)$$
+and with a sufficiently small $0 < \lambda h \ll 1$ is assumed. 
+$$
+h = \frac{e^{\lambda h} - 1}{\lambda}
+$$
+so the non-trivial step function is of the form $\phi(h) = \frac{e^{\lambda h} - 1}{\lambda}$.
+In our situation, $h = \Delta t$ and $\lambda = r$, so the non-trivial step function for the first equation from the dynamical system is the function 
+$$
+\phi(\Delta t, r) = \frac{e^{r\Delta t} - 1}{r}
+$$
+and inserting into the exact differential diagram we get
+$$P_{n+1} = \frac{P_n + (\frac{e^{r\Delta t} - 1}{r})rP_n}{1 + (\frac{e^{r\Delta t} - 1}{r})(r\frac{P_n}{K} + sQ)}.$$
+Let's now perform analogous reasoning for the second equation of our dynamic system. 
+We have
+$$
+\frac{dQ}{dt} = -uQ + asPQ = Q(asP-u),
+$$
+and so again a scaled version of the logistic equation. Thus, following the same steps, we obtain a non-trivial step function where $\lambda = u$ of the form:
+$$\phi(\Delta t, u) = \frac{e^{u\Delta t} - 1}{u}$$
+and inserting into the exact differential diagram we get
+
+$$Q_{n+1} = \frac{Q_n + (\frac{e^{u\Delta t} - 1}{u})(asP_nQ_n)}{1 + (\frac{e^{u\Delta t} - 1}{u})u}$$
+Let's see the results using the same examples.  
+
+```{r lab6_simulation_8, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta1 <- 0.1
+delta2 <- 1.1
+delta3 <- 3.2
+delta4 <- 5
+delta5 <- 50
+
+s6_ct1 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta1, step_type='nietrywialna')
+s6_ct2 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta2, step_type='nietrywialna')
+s6_ct3 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta3, step_type='nietrywialna')
+s6_ct4 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta4, step_type='nietrywialna')
+s6_ct5 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta5, step_type='nietrywialna')
+
+dfs6_nct <- data.frame(N = c(s6_ct1$N, s6_ct2$N, s6_ct3$N, s6_ct4$N, s6_ct5$N), 
+                      P = c(s6_ct1$P, s6_ct2$P, s6_ct3$P, s6_ct4$P, s6_ct5$P), 
+                      Q = c(s6_ct1$Q, s6_ct2$Q, s6_ct3$Q, s6_ct4$Q, s6_ct5$Q),
+                      Delta = c(rep("a) delta = 0.1", nrow(s6_ct1)),rep("b) delta = 1.1",nrow(s6_ct2)),
+                                rep("c) delta = 3.2", nrow(s6_ct3)), rep("d) delta = 5", nrow(s6_ct4)),                                rep("e) delta = 50", nrow(s6_ct5))))
+
+```
+
+```{r lab6_plotting_simulation_8, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs6_nct, aes(P, Q, col=Delta)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs6_nct, aes(N, P, col=Delta)) + geom_line() + xlim(0,200) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs6_nct, aes(N, Q, col=Delta)) + geom_line() + xlim(0,200) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+We can see that using a non-trivial step function convergence is also achieved, but not at all in a faster way. For a large time step, a large number of iterations is further needed. This shows the importance of the correctness of the implementation of the dynamic model to obtain convergence of solutions for different time steps. 
+
+Comparing to Euler's method, we can observe, first of all, the stability of the solutions, since Euler's method ceased to be stable already for a time step of $\Delta = 1$. On the other hand, the alternative methods RK2 and RK4, although they were more stable (however, for a larger time step they also stopped converging), in addition to this, in the case of a multi-equation model (we only have 2) the implementation would be extremely difficult due to the need to write many equations. This argues for a discretization of the dynamical system. 
+
+
+The Jacobian matrix for our dynamical system is of the form:
+$$
+J = \begin{bmatrix}
+1 + r - \frac{2r}{K}P^{*} - sQ^{*} & -sP^{*} \\
+asQ^{*} & 1 - u + asP^{*} 
+\end{bmatrix}
+$$
+and for the equilibrium point $(P^{*}, Q^{*}) = (0,0)$ it is as follows:
+$$
+J = \begin{bmatrix}
+1 + r & 0 \\
+0 & 1 - u 
+\end{bmatrix}
+$$
+
+Assuming the parameters from the task, we get 
+$$
+J= \begin{bmatrix}
+2.2 & 0 \\
+0 & 0.8 
+\end{bmatrix}
+$$
+Then we get $trJ = 3$ and $detJ = 1.76$ so Jury's conditions are not satisfied because $trJ = 3 > 2.76 = 1 + detJ$ and $1+detJ = 2.76 > 2$. Thus, the point $(0,0)$ is not stable for the parameters we have assumed. This is logical, because with an initial population of rabbits and foxes (prey and predators) with some density and positive growth rates for the prey population and fox birth rate, we do not expect both populations to die out (with these parameters and this model design). Of course, these populations in the real world may go extinct with some random factor, but in our situation the model is not able to predict such a situation.  
+
+
+
+We will now check for the given dynamical system the built-in *deSolve* package that allows solving initial problems for differential equations/systems. 
+
+Let's first check the solutions with our parameters for the *lsoda* function. 
+```{r lab6_desolve, warning=FALSE, echo=FALSE, out.width="50%"}
+library(deSolve)
+
+SPCmod <- function(t, x, parms) {
+  with(as.list(c(parms, x)), {
+    import <- sigimp(t)
+    dP <- r*P*(1-P/K) - s*P*Q   #Victim
+    dQ <- -u*Q + a*s*P*Q      #Predator
+    res <- c(dP, dQ)
+    list(res)
+  })
+}
+
+## Parameters 
+parms  <- c(r = 1.2, 
+            u = 0.2, 
+            s = 2, 
+            a = 0.5,
+            K = 1)
+
+## vector of timesteps
+times  <- seq(0, 100, length = 101)
+
+## external signal with rectangle impulse
+signal <- as.data.frame(list(times = times,
+                            import = rep(0,length(times))))
+
+signal$import[signal$times >= 10 & signal$times <= 11] <- 0.2
+
+sigimp <- approxfun(signal$times, signal$import, rule = 2)
+
+
+## Start values for steady state
+y <- xstart <- c(P=0.3, Q = 0.9)
+
+## Solving
+out_lsoda <-  lsoda(xstart, times, SPCmod, parms) 
+
+## Plotting
+mf <- par("mfrow")
+plot(out_lsoda, main = c("Prey", "Predator"))
+plot(out_lsoda[,"P"], out_lsoda[,"Q"], type = "l", xlab = "Prey", ylab = "Predator")
+par(mfrow = mf)
+```
+
+
+We see indeed a fast convergence to the equilibrium point and stability of solutions. Let's check for the *ode* function. 
+```{r lab6_ode, warning=FALSE, echo=FALSE, out.width="50%"}
+LVmod <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    
+    dP <- r*P*(1-P/K) - s*P*Q
+    dQ <- -u*Q + a*s*P*Q 
+
+    return(list(c(dP, dQ)))
+  })
+}
+
+pars  <- c(r = 1.2, 
+            u = 0.2, 
+            s = 2, 
+            a = 0.5,
+            K = 1)
+
+yini  <- c(P = 0.3, Q = 0.9)
+times <- seq(0, 200, by = 1)
+out   <- ode(yini, times, LVmod, pars)
+
+## Default plot method
+plot(out)
+
+## User specified plotting
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "Time", ylab = "Together",
+        main = "Predator-prey model", lwd = 2)
+legend("topright", c("Prey", "Predator"), col = 1:2, lty = 1:2)
+```
+
+
+And here, too, we see seamless convergence to the equilibrium point of the embedded function. Let us now juxtapose the solutions of these methods with the methods tested by us. 
+
+
+```{r lab6_together, warning=FALSE, echo=FALSE, out.width="50%"}
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta1 <- 1.1
+delta2 <- 3.2
+delta3 <- 5
+
+rk4_1 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta1)
+rk4_2 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta2)
+rk4_3 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta3)
+
+discrete_1<-model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta1, step_type='nietrywialna')
+discrete_2 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta2, step_type='nietrywialna')
+discrete_3 <- model_fixed(p_0, q_0, r, u, s, a, K, Ti, delta3, step_type='nietrywialna')
+
+
+df_full <- data.frame(Czas = rep(1:100, 8), 
+                      P = c(out[1:100,2],out_lsoda[1:100,2], rk4_1[1:100, "P"], rk4_2[1:100, "P"], rk4_3[1:100,"P" ],
+                            discrete_1[1:100, "P"], discrete_2[1:100, "P"], discrete_3[1:100, "P"]), 
+                      Q = c(out[1:100, 3],out_lsoda[1:100, 3], rk4_1[1:100, "Q"], rk4_2[1:100, "Q"], rk4_3[1:100, "Q"],
+                            discrete_1[1:100, "Q"], discrete_2[1:100, "Q"], discrete_3[1:100, "Q"]),                      Wartosc = c(rep("Function ODE", 100),rep("Function LSODA",100),
+                                rep("RK4 Delta = 1.1", 100), rep("RK4 Delta = 3.2", 100),                                rep("RK4 Delta = 5", 100), rep("Non-standard method Delta = 1.1", 100),
+                                rep("Non-standard method Delta = 3.2", 100), 
+                                rep("Non-standard method Delta = 5", 100)))
+ggplot(df_full, aes(P, Q, col=Wartosc)) + geom_path() + geom_point() + xlim(0,0.4) + ylim(0,1)+ ggtitle("Phase portrait")
+ggplot(df_full, aes(Czas, P, col=Wartosc)) + geom_line() + xlim(0,50) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(df_full, aes(Czas, Q, col=Wartosc)) + geom_line() + xlim(0,50) + geom_point() + ylim(0,1)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```

@@ -1,0 +1,438 @@
+---
+title: "Continuous models"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-24"
+---
+
+```{r lab4_5_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Continuous models and the problem of choosing an appropriate numerical method
+
+In what follows, we consider the predator-prey model in the context of two differential equations (continuous type model), i.e.
+\begin{align*}
+\frac{dP}{dt} = rP(1-\frac{P}{K}) - sPQ = f_1(P, Q) \\
+\frac{dQ}{dt} = -uQ + asPQ = f_2(P,Q)
+\end{align*}
+The discrete model considered in the previous lab is a unit time map for the above system of differential equations. The equilibrium points of this system do not change therefore
+$$
+(P^{*}, Q^{*}) = (0,0),\quad (P^{*}, Q^{*}) = (K,0),\quad (P^{*}, Q^{*}) = (\frac{u}{sa}, \frac{r}{s}(1-\frac{u}{saK})) 
+$$
+The Euler method for this system has the form
+\begin{align*}
+P_{n+1} = P_n + \Delta t(rP_n(1-\frac{P_n}{K}) - sP_nQ_n), \\
+Q_{n+1} = Q_n + \delta t(-uQ_n + asP_nQ_n),
+\end{align*}
+Where at $\Delta t = 1$ we get the discrete system from the previous sections.
+
+In turn, the RK2 method for this system takes the form:
+
+
+
+\begin{align*}
+      k_{1P}&= f_1(P_n, Q_n)\\
+      k_{1Q}&= f_2(P_n, Q_n)\\
+      k_{2P}&= f_1(P_n + \Delta t k_{1P}, Q_n + \Delta t k_{1Q}) \\
+      k_{2Q}&= f_2(P_n + \Delta t k_{1P}, Q_n + \Delta t k_{1Q})
+\end{align*}       
+
+$$
+\begin{cases}
+P_{n+1} = P_n + \frac{\Delta t}{2}(k_{1P} + k_{2P}),\\
+Q_{n+1} = Q_n + \frac{\delta t}{2}(k_{1Q} + k_{2Q})
+\end{cases}
+$$
+
+
+The RK4 method for this system is of the form:
+
+
+\begin{align*}
+k_{1P}&= f_1(P_n, Q_n) \\
+k_{1Q}&= f_2(P_n, Q_n) \\
+k_{2P}&= f_1(P_n + \frac{\Delta t}{2}k_{1P}, Q_n + \frac{\Delta t}{2}k_{1Q})\\
+k_{2Q}&= f_2(P_n + \frac{\Delta t}{2}k_{1P}, Q_n + \frac{\Delta t}{2}k_{1Q})\\
+k_{3P}&= f_1(P_n + \frac{\Delta t}{2}k_{2P}, Q_n + \frac{\Delta t}{2}k_{2Q})\\
+k_{3Q}&= f_2(P_n + \frac{\Delta t}{2}k_{2P}, Q_n + \frac{\Delta t}{2}k_{2Q})\\
+k_{4P}&= f_1(P_n + \frac{\Delta t}{2}k_{3P}, Q_n + \frac{\Delta t}{2}k_{3Q})\\
+k_{4Q}&= f_2(P_n + \frac{\Delta t}{2}k_{3P}, Q_n + \frac{\Delta t}{2}k_{3Q})
+\end{align*}
+
+
+
+$$
+\begin{cases}
+P_{n+1} = P_n + \frac{\Delta t}{6}(k_{1P} + 2k_{2P} + 3k_{3P} + 4k_{4P}), \\
+Q_{n+1} = Q_n + \frac{\delta t}{6}(k_{1Q} + 2k_{2Q} + 3k_{3Q} + 4k_{4Q}).
+\end{cases}
+$$
+
+We assume the following initial parameters:
+$$P_0 = 0.3, Q_0 = 0.9, r=1.2, u = 0.2, s = 2, a = 0.5, K = 1.
+$$
+
+We will examine the stability of the equilibrium points for these points. For the parameters and individual equilibrium points given above, we will obtain:
+\begin{enumerate}
+\item {$(P^{*}, Q^{*}) = (0,0)$:
+$$
+J = \begin{bmatrix}
+1 + r & 0 \\
+0 & 1 - u 
+\end{bmatrix}
+= \begin{bmatrix}
+2.2 & 0 \\
+0 & 0.8 
+\end{bmatrix}
+$$
+Then we get $trJ = 3$ and $detJ = 1.76$ so Jury's conditions are not satisfied because $trJ = 3 > 2.76 = 1 + detJ$ and $1+detJ = 2.76 > 2$. Therefore, the point $(0,0)$ is not stable}.
+\item{$(P^{*}, Q^{*}) = (K = 1, 0)$:
+$$
+J = \begin{bmatrix}
+1 + r - \frac{2r}{K}\cdot1 & -s\cdot1 \\
+0 & 1 - u + as\cdot1
+\end{bmatrix}
+= \begin{bmatrix}
+-0.2 & -2 \\
+0 & 1.8
+\end{bmatrix}
+$$
+Then we get $trJ = $1.6$ and $detJ = -0.36$ therefore Jury's conditions are not satisfied because $trJ = 1.6 > 0.64 = 1 + detJ$ therefore the point $(1,0)$ is not stable}.
+\item{$(P^{*}, Q^{*}) = (\frac{u}{sa}, \frac{r}{s}(1-\frac{u}{saK})) = (0.2,0.48)$:
+$$
+J = \begin{bmatrix}
+1 - \frac{ur}{saK} & -\frac{u}{a} \\
+ar(1-\frac{u}{saK}) & 1
+\end{bmatrix}=
+\begin{bmatrix}
+0.76 & -0.4 \\
+0.48 & 1
+\end{bmatrix}
+$$
+Then we get $trJ = 1.76$ and $detJ = 0.952$ so Jury's conditions are satisfied because $trJ = 1.76 < 1.952 = 1 + detJ < 2$ and we have stability of the given equilibrium point}.
+\end{enumerate}
+
+```{r lab4_5_functions_definition, warning= FALSE, echo=FALSE}
+library(ggplot2)
+
+euler <- function(p_0,q_0,r, u, s, a, K, Ti, delta){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #Ti - time
+  #delta - step
+  
+  N <- round(Ti/delta,0)
+  
+  # declare list to store results
+  p <- rep(0, N+1)
+  q <- rep(0, N+1)
+  timestamp <- rep(0, N+1)
+  
+  p[1] = p_0
+  q[1] = q_0
+  
+  for (i in (1 + 1):(N+1)){
+    p[i] <- p[i-1] + delta*(r*p[i-1]*(1-p[i-1]/K) - s*p[i-1]*q[i-1])
+    
+    q[i] <- q[i-1] + delta*(-u*q[i-1] + a*s*p[i-1]*q[i-1])
+    
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, N = timestamp, P = p, Q = q))
+  
+  
+  
+  return(result)
+}
+
+f1 <- function(p, q, r, u, s, a, K){
+  res <- r*p*(1-p/K) - s*p*q
+  return(res)
+}
+
+f2 <- function(p, q, r, u, s, a, K){
+  res <- -u*q  + a*s*p*q
+  return(res)
+}
+
+
+rk2 <- function(p_0,q_0,r, u, s, a, K, Ti, delta){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #Ti - time
+  #delta - step
+  
+  N <- round(Ti/delta,0)
+  
+  # declare list to store results
+  p <- rep(0, N+1)
+  q <- rep(0, N+1)
+  k1p <- rep(0, N+1)
+  k1q <- rep(0, N+1)
+  k2p <- rep(0, N+1)
+  k2q <- rep(0, N+1)
+  timestamp <- rep(0, N+1)
+  
+  p[1] <- p_0
+  q[1] <- q_0
+  k1p[1] <- f1(p[1], q[1], r, u, s, a, K)
+  k1q[1] <- f2(p[1], q[1], r, u, s, a, K)
+  
+  k2p[1] <- f1(p[1] + delta*k1p[1], q[1]+delta*k1q[1], r, u, s, a, K)
+  k2q[1] <- f2(p[1] + delta*k1p[1], q[1]+delta*k1q[1], r, u, s, a, K)
+  
+  for (i in (1 + 1):(N+1)){
+    
+    p[i] <- p[i-1] + delta/2*(k1p[i-1] + k2p[i-1])
+    
+    q[i] <- q[i-1] + delta/2*(k1q[i-1] + k2q[i-1])
+    
+    k1p[i] <- f1(p[i], q[i], r, u, s, a, K)
+    k1q[i] <- f2(p[i], q[i], r, u, s, a, K)
+    
+    k2p[i] <- f1(p[i] + delta*k1p[i], q[i]+delta*k1q[i], r, u, s, a, K)
+    k2q[i] <- f2(p[i] + delta*k1p[i], q[i]+delta*k1q[i], r, u, s, a, K)
+
+    
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, N = timestamp, P = p, Q = q))
+  
+  
+  
+  return(result)
+}
+
+rk4 <- function(p_0,q_0,r, u, s, a, K, Ti, delta){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #Ti - time
+  #delta - step
+  
+  N <- round(Ti/delta,0)
+  
+  # declare list to store results
+  p <- rep(0, N+1)
+  q <- rep(0, N+1)
+  k1p <- rep(0, N+1)
+  k1q <- rep(0, N+1)
+  k2p <- rep(0, N+1)
+  k2q <- rep(0, N+1)
+  k3p <- rep(0, N+1)
+  k3q <- rep(0, N+1)
+  k4p <- rep(0, N+1)
+  k4q <- rep(0, N+1)
+  
+  timestamp <- rep(0, N+1)
+  
+  p[1] <- p_0
+  q[1] <- q_0
+  
+  k1p[1] <- f1(p[1], q[1], r, u, s, a, K)
+  k1q[1] <- f2(p[1], q[1], r, u, s, a, K)
+  
+  k2p[1] <- f1(p[1] + delta/2*k1p[1], q[1]+delta/2*k1q[1], r, u, s, a, K)
+  k2q[1] <- f2(p[1] + delta/2*k1p[1], q[1]+delta/2*k1q[1], r, u, s, a, K)
+  
+  k3p[1] <- f1(p[1] + delta/2*k2p[1], q[1]+delta/2*k2q[1], r, u, s, a, K)
+  k3q[1] <- f2(p[1] + delta/2*k2p[1], q[1]+delta/2*k2q[1], r, u, s, a, K)
+  
+  k4p[1] <- f1(p[1] + delta*k3p[1], q[1]+delta*k3q[1], r, u, s, a, K)
+  k4q[1] <- f2(p[1] + delta*k3p[1], q[1]+delta*k3q[1], r, u, s, a, K)
+  
+  for (i in (1 + 1):(N+1)){
+    
+    p[i] <- p[i-1] + delta/6*(k1p[i-1] + 2*k2p[i-1] + 2*k3p[i-1] + k4p[i-1])
+    
+    q[i] <- q[i-1] + delta/6*(k1q[i-1] + 2*k2q[i-1] + 2*k3q[i-1] + k4q[i-1])
+    
+    k1p[i] <- f1(p[i], q[i], r, u, s, a, K)
+    k1q[i] <- f2(p[i], q[i], r, u, s, a, K)
+    
+    k2p[i] <- f1(p[i] + delta/2*k1p[i], q[i]+delta/2*k1q[i], r, u, s, a, K)
+    k2q[i] <- f2(p[i] + delta/2*k1p[i], q[i]+delta/2*k1q[i], r, u, s, a, K)
+    
+    k3p[i] <- f1(p[i] + delta/2*k2p[i], q[i]+delta/2*k2q[i], r, u, s, a, K)
+    k3q[i] <- f2(p[i] + delta/2*k2p[i], q[i]+delta/2*k2q[i], r, u, s, a, K)
+    
+    k4p[i] <- f1(p[i] + delta*k3p[i], q[i]+delta*k3q[i], r, u, s, a, K)
+    k4q[i] <- f2(p[i] + delta*k3p[i], q[i]+delta*k3q[i], r, u, s, a, K)
+
+
+    
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, N = timestamp, P = p, Q = q))
+  
+  
+  
+  return(result)
+}
+```
+
+For the indicated initial parameters, we will perform the following simulations ($N=\frac{T}{\Delta t}$)and present phase portraits of the solutions. First, for the following values: 
+
+a) $T = 100, \Delta t=0.1$.
+
+```{r lab4_5_simulation_1, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 100
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 0.1
+
+s1_euler <- euler(p_0, q_0, r, u, s, a, K, Ti, delta)
+s1_rk2 <- rk2(p_0, q_0, r, u, s, a, K, Ti, delta)
+s1_rk4 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta)
+
+dfs1 <- data.frame(N = s1_euler$N, P = c(s1_euler$P, s1_rk2$P, s1_rk4$P), Q = c(s1_euler$Q, s1_rk2$Q, s1_rk4$Q),Metoda = c(rep("Euler", nrow(s1_euler)), rep("RK2", nrow(s1_rk2)), rep("RK4", nrow(s1_rk4))))
+
+```
+```{r lab4_5_plotting_simulation_1, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs1, aes(P, Q, col=Metoda)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs1, aes(N, P, col=Metoda)) + geom_line() + xlim(0,30) + geom_point()+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs1, aes(N, Q, col=Metoda)) + geom_line() + xlim(0,30) + geom_point()+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+According to the above simulations, for a time step of $\Delta t = 0.1$, we can observe the convergence of the solutions of all methods to the equilibrium point of the system $(0.2,0.48)$. The methods give very close solutions, and RK2 and RK4 even coincide. Of course, with the numerical parameters chosen in this way, the assumptions about their convergence are met for each method, which are strictly dependent on the value of the time step. It can be seen that we obtain approximate solutions already on the interval $t\in [0,30]$. We will now extend the number of days and increase the time step.
+
+b) $T = 1000, \Delta t=1$.
+
+```{r lab4_5_simulation_2, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 1
+
+s2_euler <- euler(p_0, q_0, r, u, s, a, K, Ti, delta)
+s2_rk2 <- rk2(p_0, q_0, r, u, s, a, K, Ti, delta)
+s2_rk4 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta)
+
+dfs2 <- data.frame(N = s2_euler$N, P = c(s2_rk2$P, s2_rk4$P, s2_euler$P), Q = c(s2_rk2$Q, s2_rk4$Q, s2_euler$Q),Metoda = c(rep("RK2", nrow(s2_rk2)), rep("RK4", nrow(s2_rk4)), rep("Euler", nrow(s2_euler))))
+
+```
+```{r lab4_5_plotting_simulation_2, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs2, aes(P, Q, col=Metoda)) + geom_path() + geom_point()+ ggtitle("Phase portrait")
+ggplot(dfs2, aes(N, P, col=Metoda)) + geom_line() + xlim(0,100) + geom_point()+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs2, aes(N, Q, col=Metoda)) + geom_line() + xlim(0,100) + geom_point()+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+The above simulations for a time step of $\Delta t = 1$ show the convergence of the solutions of the RK2 and RK4 methods to the equilibrium point of the system $(0.2,0.48)$, while although the Euler method also converges to this point, it falls into oscillations by which it pursues the solution in a less stable manner and requires more iterations. Still, the RK2 and RK4 methods even overlap after a small amount of time. Since the Euler method requires a small time step $\Delta t$ let's increase it slightly and check the results. 
+
+c) $T = 1000, \Delta t=1.1$.
+
+```{r lab4_5_simulation_3, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 1.1
+
+s3_euler <- euler(p_0, q_0, r, u, s, a, K, Ti, delta)
+s3_rk2 <- rk2(p_0, q_0, r, u, s, a, K, Ti, delta)
+s3_rk4 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta)
+
+dfs3 <- data.frame(N = s3_euler$N, P = c(s3_rk2$P, s3_rk4$P, s3_euler$P), Q = c(s3_rk2$Q, s3_rk4$Q, s3_euler$Q),Metoda = c(rep("RK2", nrow(s3_rk2)), rep("RK4", nrow(s3_rk4)), rep("Euler", nrow(s3_euler))))
+
+```
+```{r lab4_5_plotting_simulation_3, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs3, aes(P, Q, col=Metoda)) + geom_path() + geom_point() + xlim(-1, 1) + ylim(0, 1)+ ggtitle("Phase portrait")
+ggplot(dfs3, aes(N, P, col=Metoda)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1) + ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs3, aes(N, Q, col=Metoda)) + geom_line() + xlim(0,100) + geom_point() + ylim(0,1) + ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+We can see that for a time step of $\Delta t = 1.1$ therefore an increase from the previous simulation of just $0.1$ the Euler method is already diverging, while the RK2 and RK4 methods continue to converge to the equilibrium point of the system $(0.2,0.48)$. This allows us to see the aforementioned instability of Euler's method and a sizable dependence on the choice of time step. Let's increase the time step again, this time by three times. 
+
+d) $T = 1000, \Delta t=3$.
+
+```{r lab4_5_simulation_4, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 3
+
+s4_euler <- euler(p_0, q_0, r, u, s, a, K, Ti, delta)
+s4_rk2 <- rk2(p_0, q_0, r, u, s, a, K, Ti, delta)
+s4_rk4 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta)
+
+dfs4 <- data.frame(N = s4_euler$N, P = c(s4_euler$P, s4_rk2$P, s4_rk4$P), Q = c(s4_euler$Q, s4_rk2$Q, s4_rk4$Q),Metoda = c(rep("Euler", nrow(s4_euler)), rep("RK2", nrow(s4_rk2)), rep("RK4", nrow(s4_rk4))))
+
+```
+```{r lab4_5_plotting_simulation_4, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs4, aes(P, Q, col=Metoda)) + geom_path() + geom_point() + xlim(-2, 2) + ylim(-2, 2)+ ggtitle("Phase portrait")
+ggplot(dfs4, aes(N, P, col=Metoda)) + geom_line() + xlim(0,100) + geom_point() + ylim(-2,2)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs4, aes(N, Q, col=Metoda)) + geom_line() + xlim(0,100) + geom_point() + ylim(-2,2)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+For a time step of $\Delta t = 3$, only the RK4 method already converges to the equilibrium point of the $(0.2, 0.48)$ system, where both the Euler and RK2 methods already diverge. Moreover, both methods violate the basic assumption of non-negativity of population density. In this case, the RK4 method is the most robust to changing the time step size. Let's test its further capabilities and again increase the step by a small amount.
+
+e) $T = 1000, \Delta t=3.2$.
+
+```{r lab4_5_simulation_5, warning= FALSE, echo=FALSE}
+# initial parameters
+Ti <- 1000
+p_0 <- 0.3
+q_0 <- 0.9
+r <- 1.2
+u <- 0.2
+s <- 2
+a <- 0.5
+K <- 1
+delta <- 3.2
+
+s5_euler <- euler(p_0, q_0, r, u, s, a, K, Ti, delta)
+s5_rk2 <- rk2(p_0, q_0, r, u, s, a, K, Ti, delta)
+s5_rk4 <- rk4(p_0, q_0, r, u, s, a, K, Ti, delta)
+
+dfs5 <- data.frame(N = s5_euler$N, P = c(s5_euler$P, s5_rk2$P, s5_rk4$P), Q = c(s5_euler$Q, s5_rk2$Q, s5_rk4$Q),Metoda = c(rep("Euler", nrow(s5_euler)), rep("RK2", nrow(s5_rk2)), rep("RK4", nrow(s5_rk4))))
+
+```
+```{r lab4_5_plotting_simulation_5, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(dfs5, aes(P, Q, col=Metoda)) + geom_path() + geom_point() + xlim(-2, 2) + ylim(-2, 2)+ ggtitle("Phase portrait")
+ggplot(dfs5, aes(N, P, col=Metoda)) + geom_line() + xlim(0,20) + geom_point() + ylim(-2,2)+ ggtitle("Solving the method against time t for P") + xlab("t")
+ggplot(dfs5, aes(N, Q, col=Metoda)) + geom_line() + xlim(0,20) + geom_point() + ylim(-2,2)+ ggtitle("Solving the method against time t for Q") + xlab("t")
+```
+
+In such a variant, no method converges to the equilibrium point of the solution of a given system anymore. Since we do not always have an influence on the choice of the simulation step because, for example, it can be imposed by the phenomenon itself, this shows the difficulty of modeling and choosing the right method to determine the solutions of certain equations. Each of them has assumptions to which special attention should be paid. As can be seen, even the assumption of a small time step size can significantly disturb the results and not lead to convergence of the solution. 

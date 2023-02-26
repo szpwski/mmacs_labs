@@ -1,0 +1,212 @@
+---
+title: "Prey-predator models"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-24"
+---
+
+```{r lab3_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Prey-predator type models.
+
+We will consider a discrete model of the Lotki-Volterra type assuming unlimited capacity of the environment for the prey population. Suppose we have populations of two species, e.g. foxes (predator - predator ) and rabbits (prey - prey). Let $P_n$ denote the density of the rabbit population, and $Q_n$ denote the density of the fox population at time $n$. The predator-prey model has the following form:
+\begin{align*}
+P_{n+1} = P_n(1 + r(1 - \frac{P_n}{K})) - sP_nQ_n = f_1(P_n, Q_n) \\
+Q_{n+1} = (1-u)Q_n + asP_nQ_n = f_2(P_n, Q_n)
+\end{align*}
+where
+\begin{itemize}
+  \item $r>0$ prey reproduction rate;
+  \item $0 < u < 1$ predator mortality rate;
+  \item $rP_t, sQ_t$ components describing the internal dynamics of rabbit and fox species;
+  \item $s>0$ coefficient of hunting efficiency;
+  \item $a$ the number of predator births per attack, otherwise we can say that a reflects the proportion of hunted biomass that a fox species allocates to reproduction (i.e., the efficiency of using a successful attack to reproduce);
+  \The $-sP_nQ_n$ component of biomass, which describes the negative effect of predator-prey interactions on the prey population (interprets the biomass of hunted prey), the greater $s$ (hunting efficiency), the greater the loss in the rabbit population;
+  \item $asP_nQ_n$ biomass component, which describes the positive effect of predator-prey interactions on the predator population, the larger the value of $as$, the better fed the predator population and its abundance increases.
+\end{itemize}
+
+Assume that $P_n = P_{n+1} = P^{*}$ and $Q_n = Q_{n+1} = Q^{*}$ then the system
+\begin{align*}
+P^{*} = f_1(P^{*}, Q^{*})\\
+Q^{*} = f_2(P^{*}, Q^{*})
+\end{align*}
+has three solutions (equilibrium points) of the form
+\begin{align*}
+(P^{*}_1, Q^{*}_1) = (0,0) \\
+(P^{*}_2, Q^{*}_2) = (K, 0) \\
+(P^{*}_3, Q^{*}_3) = (\frac{u}{sa}, \frac{r}{s}(1-\frac{u}{saK}))
+\end{align*}
+Indeed, from the second equation of the system we get the following 
+\begin{align*}
+Q^{*} = Q^{*}[(1-u) + asP^{*}] \\
+Q^{*}[u - asP^{*}] = 0
+\end{align*}
+from where $Q^{*}=0$ or $P^{*} = \frac{u}{as}$. Let us first consider the first situation $Q^{*} = 0$, then by inserting into the first equation of the system we have:
+\begin{align*}
+P^{*} = P^{*}(1 + r(1 - \frac{P^{*}}{K})) \\
+P^{*} = P^{*} + P^{*}r - \frac{(P^{*})^2r}{K} \\
+P^{*}r - \frac{(P^{*})^2r}{K} = 0 \\
+P^{*}(r - \frac{P^{*}r}{K}) = 0
+\end{align*}
+so $P^{*} = 0$ or $P^{*} = K$. Thus, we have already demonstrated the equality of existence of two equilibrium points 
+\begin{align*}
+(P^{*}_1, Q^{*}_1) = (0,0) \\
+(P^{*}_2, Q^{*}_2) = (K, 0) 
+\end{align*}.
+Now we will consider the situation where $P^{*} = \frac{u}{as}$. Inserting into the first equation of the system we have:
+\begin{align*}
+\frac{u}{as} = \frac{u}{as} + \frac{ur}{as} - \frac{u^2r}{(as)^2K} - \frac{u}{a}Q^{*} \\
+Q^{*} = \frac{r}{s} - \frac{ur}{as^2K} \\
+Q^{*} = \frac{r}{s}(1 - \frac{u}{saK})
+\end{align*}
+From there we get the third equilibrium point 
+$$
+(P^{*}_3, Q^{*}_3) = (\frac{u}{sa}, \frac{r}{s}(1-\frac{u}{saK})).
+$$
+
+We create a function for the model and graphs.
+
+```{r lab3_model_definition, warning= FALSE, echo=FALSE}
+library(ggplot2)
+
+model <- function(p_0,q_0,r, u, s, a, K, N, delta){
+  #p_0 - starting point 1
+  #q_0 - starting point 2
+  #r - growth rate of croc population
+  #u - fox mortality rate
+  #s - attack efficiency ratio
+  #a - number of foxes born per attack
+  #K - capacity of the environment
+  #N - number of generations
+  #delta - step
+  
+  # declare list to store results
+  p <- rep(0, N+delta)
+  q <- rep(0, N+delta)
+  timestamp <- rep(0, N+delta)
+  
+  p[1] = p_0
+  q[1] = q_0
+  
+  for (i in (1 + delta):(N+delta)){
+    p[i] <- p[i-1]*(1 + r*(1 - (p[i-1] / K))) - s*p[i-1]*q[i-1]
+    q[i] <- (1-u)*q[i-1]  + a*s*p[i-1]*q[i-1]
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, Generacja = timestamp, Kroliki = p, Lisy = q))
+  
+  
+  
+  return(result)
+}
+
+reshape <- function(result){
+  result_reshape = data.frame(Generacja = result$Generacja, Kroliki_Lisy = c(result$Kroliki, result$Lisy),Zwierz = c(rep("Rabbits", nrow(result)), rep("Foxes", nrow(result))))
+  
+  return(result_reshape)
+}
+```
+
+```{r lab3_simulation_1, warning= FALSE, echo=FALSE}
+# initial parameters
+N <- 100
+p_0 <- 0.1
+q_0 <- 0.2
+r <- 0.5
+u <- 0.2
+s <- 2.2
+a <- 0.9
+K <- 0.7
+delta <- 1
+
+s1 <- model(p_0, q_0, r, u, s, a, K, N, delta)
+```
+We will now simulate the model for the following initial parameters:
+$$ N = 100, P_0 = 0.1, Q_0 = 0.2, r=0.5, u = 0.2, s = 2.2, a = 0.9, K = 0.7
+$$
+
+```{r lab3_plotting_simulation_1, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(reshape(s1), aes(Generacja, Kroliki_Lisy, col=Zwierz)) + geom_line() + geom_point() + ggtitle("Graph of rabbit and fox populations in successive generations")
+
+plot(s1$Kroliki, s1$Lisy, type='l', xlab='Rabbits', ylab='Foxes', main='Phase portrait')
+
+```
+
+Let's check the stability of the three equilibrium points for the mapping $f=(f_1, f_2)$. The Jacobi matrix then has the form:
+$$
+J = \begin{bmatrix}
+1 + r - \frac{2r}{K}P^{*} - sQ^{*} & -sP^{*} \\
+asQ^{*} & 1 - u + asP^{*} 
+\end{bmatrix}
+$$
+
+For the parameters and individual equilibrium points given above, we get:
+\begin{enumerate}
+\item {$(P^{*}, Q^{*}) = (0,0)$:
+$$
+J = \begin{bmatrix}
+1 + r & 0 \\
+0 & 1 - u 
+\end{bmatrix}
+= \begin{bmatrix}
+1.5 & 0 \\
+0 & 0.8 
+\end{bmatrix}
+$$
+Then we get $trJ = 2.3$ and $detJ = 1.2$ therefore Jury's conditions are not satisfied because $trJ = 2.3 > 2.2 = 1 + detJ$ and $1+detJ = 2.2 > 2$. Therefore, the point $(0,0)$ is not stable.}
+\item{$(P^{*}, Q^{*}) = (K = 0.7, 0)$:
+$$
+J = \begin{bmatrix}
+1 + r - \frac{2r}{K}\cdot0.7 & -s\cdot0.7 \\
+0 & 1 - u + as\cdot0.7
+\end{bmatrix}
+= \begin{bmatrix}
+0.5 & -1.54 \\
+0 & 2.186
+\end{bmatrix}
+$$
+Then we get $trJ = 2.686$ and $detJ = 1.096$ therefore Jury's conditions are not satisfied because $trJ = 2.686 > 2.096 = 1 + detJ$ and $1+detJ = 2.096 > 2$. Therefore, the point $(0.7,0)$ is not stable}.
+\item{$(P^{*}, Q^{*}) = (\frac{u}{sa}, \frac{r}{s}(1-\frac{u}{saK})) = (0.1,0.19)$:
+$$
+J = \begin{bmatrix}
+1 - \frac{ur}{saK} & -\frac{u}{a} \\
+ar(1-\frac{u}{saK}) & 1
+\end{bmatrix}=
+\begin{bmatrix}
+0.72 & -0.22 \\
+0.39 & 1
+\end{bmatrix}
+$$
+Then we get $trJ = 1.72$ and $detJ = 0.8$ so Jury's conditions are satisfied because $trJ = 1.72 < 1.8 = 1 + detJ < 2$ and we have the stability of the given equilibrium point}.
+\end{enumerate}
+
+From the simulation for $N=100$ is the stability of this point is seen in a rather weak way. Moreover, it looks like cyclic stability. So let's check the simulation for $N=1000$ generation.
+
+```{r lab3_simulation_2, warning= FALSE, echo=FALSE}
+# initial parameters
+N <- 1000
+p_0 <- 0.1
+q_0 <- 0.2
+r <- 0.5
+u <- 0.2
+s <- 2.2
+a <- 0.9
+K <- 0.7
+delta <- 1
+
+s2 <- model(p_0, q_0, r, u, s, a, K, N, delta)
+```
+```{r lab3_plotting_simulation_2, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(reshape(s2), aes(Generacja, Kroliki_Lisy, col=Zwierz)) + geom_line() + geom_point() + ggtitle("Graph of rabbit and fox populations in successive generations")
+
+plot(s2$Kroliki, s2$Lisy, type='l', xlab='Rabbits', ylab='Foxes', main='Phase portrait')
+
+```
+
+Here we can already see the stability of the indicated point with its cyclicality. Moreover, from the phase portrait we can clearly see the pursuit of the indicated stable point. 
+
+In the given simulation, the initial density of rabbits is twice as low as the initial density of foxes. What's more, foxes have a high attack rate, so in the first generations we can see a large decrease in rabbit population (higher fox population and high effectiveness). However, after the rabbit population declines, the predators run out of food and their population numbers also decline. Meanwhile, the population of prey (rabbits) begins to increase again, and the foxes have food - another attack occurs. During the attack, the population of foxes increases and the population of rabbits decreases. This turn of events explains the cyclical nature of the indicated equilibrium point.
