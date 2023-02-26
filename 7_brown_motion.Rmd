@@ -1,0 +1,183 @@
+---
+title: "Brownian Movement"
+output: pdf_document
+date: '2022-12-08'
+---
+
+
+```{r lab11_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Simulation of Brownian motion
+
+## Generating the trajectory of the process
+
+A time-dependent function whose values at each time step are random variables is called a stochastic process. 
+
+A stochastic process of the form
+
+$$
+\{B(t), \quad t\in [0,T]\}
+$$
+
+On the other hand, we call a Brownian motion process (Wiener process) if it satisfies the following conditions
+- the increments of the process are independent random variables, i.e. for any moments $t_0 < t_1 < ... < t_n \leq T$ increments.
+
+$$
+B(t_1) - B(t_0), B(t_2) - B(t_1), ..., B(t_n) - B(t_{n-1})
+$$
+
+are independent;
+- the process increments are homogeneous (stationary), i.e:
+
+$$
+\forall_{t>s} \quad B(t) - B(s) \sim \mathcal{N}(0, t-s);
+$$
+
+- The process has continuous trajectories with probability 1 ie:
+
+$$
+P(\{\omega \in \Omega : t \mapsto B(t,\omega) \textrm{ jest funkcją ciągłą}\}) = 1;
+$$
+
+If in addition 
+
+$$
+P(B(0) = 0) = 1
+$$
+
+then the stochastic process $\{B(t), t \in [0, T]\}$ is called a standard Brownian motion process. We consider a discretized Brownian process i.e. one defined on a finite, predetermined set of division points of the segment $[0,T]$. Let us note that based on the properties of Brownian motion for a fixed increment $\Delta t >0$, it occurs
+
+$$
+B(\Delta t) = B(\Delta t) - B(0) \sim \mathcal{N}(0, \Delta t) \sim \sqrt{\Delta t}\mathcal{N}(0, 1)
+$$
+
+and
+
+$$
+B(t + \Delta t) - B(t) \sim \mathcal{N}(0, \Delta t) \sim \sqrt{\Delta t}\mathcal{N}(0, 1).
+$$
+
+
+
+## Algorithm for generating trajectories.
+
+For the interval $[0, T]$ we set $N>0$ and take the time step $\Delta t = \frac{T}{N}$ obtaining the following segmentation of the segment.
+
+$$
+0 = t_0 < t_1 < ... < t_{N-1} < t_N = T \quad t_i = i\Delta t.
+$$
+
+
+Let us denote by $B_i = B(t_i)$ the value of the trajectory of the Brownian motion process at the point $t_i$. Then we generate the trajectory of the process according to the following algorithm:
+1. $B_0 = 0$;
+2. $B_i = B_{i-1} + \sqrt{\Delta t}\epsilon_i$,
+where ${\epsilon_i, \quad i=1, ..., N}$ is a sequence of independent random variables with distribution $\mathcal{N}(0,1)$. Such a simulation generates trajectory points only at the dividing points of the segment $[0, T]$ between the dividing points the trajectory is approximated by linear interpolation (in the program we connect the determined discrete points with lines). 
+
+An example function that generates a trajectory of Brownian motion depending on the parameters $N$ and $T$ looks as follows:
+
+```{r lab11_funkcja, warning= FALSE, echo=TRUE, results='hide', message=FALSE}
+brown <- function(N, T){
+  return(cumsum(c(0, sqrt(T/N) * rnorm(N, 0, 1))))
+}
+
+```
+
+Now let's generate process trajectories for $T=1$ with three different segment divisions, i.e., we will assume $N \in \{2^5, 2^7, 2^9\}$. The results are as follows
+
+```{r lab11_trajektorie1, echo=FALSE, results='hide', message=FALSE}
+Ti <- 1
+
+N_1 <- 2^5
+N_2 <- 2^7
+N_3 <- 2^9
+
+x_1 <- seq(0,Ti, Ti/N_1)
+x_2 <- seq(0,Ti, Ti/N_2)
+x_3 <- seq(0,Ti, Ti/N_3)
+
+
+t1 <- data.frame("B_t"= c(brown(N_1, Ti), brown(N_2, Ti), brown(N_3, Ti)), 
+                 "t" = c(x_1, x_2, x_3), 
+                 "N"=c(rep("2^5", length(x_1)), rep("2^7",length(x_2)), rep("2^9", length(x_3))))
+```
+
+
+```{r lab11_trakektorie1_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(ggplot2)
+library(latex2exp)
+ggplot(t1, aes(t, B_t, col=N)) + geom_line() + ggtitle("Process trajectory for a fixed event") + xlab(TeX("$t=[0,T]$")) + ylab(TeX("$B(t, \\omega)$"))
+```
+
+
+We can see how much influence a change in the value of $N$ has on the number of "bounces" of the Brownian motion trajectory. Moreover, a small number of bounces that is, at the same time, a high number of $\Delta t$ causes a larger variance in the realizations of the stochastic process. Next, we will check the generation of trajectories for a segment at $T=10$ with the same divisions $N \in \{2^5, 2^7, 2^9\}$. 
+
+```{r lab11_trajektorie2, echo=FALSE, results='hide', message=FALSE}
+Ti <- 10
+
+N_1 <- 2^5
+N_2 <- 2^7
+N_3 <- 2^9
+
+x_1 <- seq(0,Ti, Ti/N_1)
+x_2 <- seq(0,Ti, Ti/N_2)
+x_3 <- seq(0,Ti, Ti/N_3)
+
+
+t1 <- data.frame("B_t"= c(brown(N_1, Ti), brown(N_2, Ti), brown(N_3, Ti)), 
+                 "t" = c(x_1, x_2, x_3), 
+                 "N"=c(rep("2^5", length(x_1)), rep("2^7",length(x_2)), rep("2^9", length(x_3))))
+```
+
+
+```{r lab11_trakektorie2_wykres, echo=FALSE, results='hide', message=FALSE}
+ggplot(t1, aes(t, B_t, col=N)) + geom_line() + ggtitle("Process trajectory for a fixed event") + xlab(TeX("$t=[0,T]$")) + ylab(TeX("$B(t, \\omega)$"))
+```
+
+Finally, we will look at the situation when $T=100$ with the same $N$ divisions.
+```{r lab11_trajektorie3, echo=FALSE, results='hide', message=FALSE}
+Ti <- 100
+
+N_1 <- 2^5
+N_2 <- 2^7
+N_3 <- 2^9
+
+x_1 <- seq(0,Ti, Ti/N_1)
+x_2 <- seq(0,Ti, Ti/N_2)
+x_3 <- seq(0,Ti, Ti/N_3)
+
+
+t1 <- data.frame("B_t"= c(brown(N_1, Ti), brown(N_2, Ti), brown(N_3, Ti)), 
+                 "t" = c(x_1, x_2, x_3), 
+                 "N"=c(rep("2^5", length(x_1)), rep("2^7",length(x_2)), rep("2^9", length(x_3))))
+```
+
+
+```{r lab11_trakektorie3_wykres, echo=FALSE, results='hide', message=FALSE}
+ggplot(t1, aes(t, B_t, col=N)) + geom_line() + ggtitle("Process trajectory for a fixed event") + xlab(TeX("$t=[0,T]$")) + ylab(TeX("$B(t, \\omega)$"))
+```
+
+
+We can see how an increase in the time segment interval allows the stochastic process to increase the achieved values. Higher deviations still show up for a small division of the segment due to the relatively large size of $\Delta t$. It is also an interesting observation that for the same reason, the process appears to be more stable for a large section division. Let's additionally generate several realizations on the same segment and with the same division to see the randomness of this stochastic process. Assume $T=100$ and $N=2^7$. 
+
+```{r lab11_trajektorie4, echo=FALSE, results='hide', message=FALSE}
+Ti <- 100
+N_2 <- 2^7
+
+x_2 <- seq(0,Ti, Ti/N_2)
+
+
+t1 <- data.frame("B_t"= c(brown(N_2, Ti), brown(N_2, Ti), brown(N_2, Ti), brown(N_2, Ti), brown(N_2, Ti)), 
+                 "t" = c(x_2, x_2, x_2, x_2, x_2), 
+                 "N"=c(rep("Process 1", length(x_2)), rep("Process 2",length(x_2)), rep("Process 3",length(x_2)), rep("Process 4",length(x_2)), 
+                       rep("Process 5",length(x_2))))
+                
+```
+
+
+```{r lab11_trakektorie_all_wykres, echo=FALSE, results='hide', message=FALSE}
+ggplot(t1, aes(t, B_t, col=N)) + geom_line() + ggtitle("Implementation of several Brownian movements for the same division") + xlab(TeX("$t=[0,T]$")) + ylab(TeX("$B(t, \\omega)$")) + theme(legend.position="none")
+```
+
+The above graph fully captures the random nature of stochastic processes. We can see that, despite the same distribution of the section, each process is able to reach a completely different value at given points. Nevertheless, the increments of each process come from a distribution with the same variance. 

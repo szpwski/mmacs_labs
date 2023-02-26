@@ -1,0 +1,50 @@
+---
+title: "Mathematical Modeling and Computer Simulations"
+subtitle: "Laboratories"
+author: "Szymon Pawłowski"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: united
+    number_sections: true
+    highlight: tango
+  pdf_document: default
+bibliography: references.bib  
+csl: big-data-and-information-analytics.csl
+nocite: '@*'
+link-citations: True
+header-includes:
+    - \usepackage{hyperref}
+---
+
+```{r child='1_romance_model.Rmd'}
+```
+
+```{r child='2_stability_analysis.Rmd'}
+```
+
+```{r child='3_predator_prey_models.Rmd'}
+```
+
+```{r child='4_continuous_models.Rmd'}
+```
+
+```{r child='5_mickens_models.Rmd'}
+```
+
+```{r child='6_sir_model.Rmd'}
+```
+
+```{r child='7_brown_motion.Rmd'}
+```
+
+```{r child='8_stochastic_models.Rmd'}
+```
+
+```{r child='9_deterministic_vs_stochastic.Rmd'}
+```
+
+# Bibliography {-}

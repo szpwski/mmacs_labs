@@ -1,0 +1,159 @@
+---
+title: "Equilibrium points and stability analysis"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-24"
+---
+
+```{r lab2_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Determination of equilibrium points and stability analysis using the Romeo and Juliet model as an example
+```{r lab2_function_definition, warning=FALSE, echo=FALSE, out.width="50%"}
+library(FixedPoint)
+
+uklad_jednorodny <- function(a_r, a_l, p_r, p_l){
+  return(rbind(c(a_r - 1, p_r), c(p_l, a_l -1)))
+}
+
+jakobian <- function(a_r, a_l, p_r, p_l){
+  return(rbind(c(a_r, p_r), c(p_l, a_l)))
+}
+
+solve_quadratic <- function(a, b, c){
+  delta <- (b^2 - 4*a*c) 
+  if ( delta < 0 ) {
+    print("No solutions in the set of real numbers")
+  } else if (delta == 0){
+    return(-b/(2*a))
+  } else {
+    return(c((-b - delta)/(2*a), (-b + delta)/(2*a)))
+  }
+}
+
+model_function <- function(a_r, a_l, p_r, p_l){
+  r_l_fun <- function(x){
+    #L <- (-(a_r - 1) * R)/p_r
+    #r <- ( p_l + (a_l - 1)*(-(a_r - 1)/p_r))
+    
+    y_r <- a_r * x[1] + p_r * x[2]
+    y_l <- a_l * x[2] + p_l * x[1]
+    
+    return(c(y_r, y_l))
+  }
+  
+  return(r_l_fun)
+}
+
+check_stability <- function(a_r, a_l, p_r, p_l){
+ 
+  print(paste0("Solution R*=0 and L*=0"))
+
+  print("Checking stability...")      
+  A <- uklad_jednorodny(a_r,a_l,p_r,p_l)
+  det_A <- round(det(A),2)
+  print(paste0("The determinant of a homogeneous system: ", det_A))
+  if (det_A != 0) {
+    print("A homogeneous system has exactly one solution!")
+    J <- jakobian(a_r, a_l, p_r, p_l)
+    trace_J <- sum(diag(J))
+    det_J <- det(J)
+    print(paste0("Trace value: ", trace_J, " and the determinant value: ", det_J))
+    if ((abs(trace_J) < 1 + det_J) & (1 + det_J < 2)){
+      fun <- model_function(a_r, a_l, p_r, p_l)
+      fp <- FixedPoint(Function = fun, Inputs = c(0,0), Method = "Aitken", Dampening = 0.5)
+      
+      print("Equilibrium point is stable!")
+      
+    } else {
+      print("Jury conditions not met, point not stable!")
+    }
+    
+  } else {
+    print("The system has an infinite number of fixed points!")
+  }
+}
+```
+We will now try to understand the result of Romeo and Juliet romance observed in the four given cases from the point of view of stability of any fixed points. We consider again 3 cases of model parameters:
+\begin{enumerate}
+  \item $R_0 = L_0 = 1, a_r = 0.5, a_L = 0.7, p_r = 0.7, p_L = 0.9$  
+  \item $R_0 = L_0 = 1, a_r = 1.0, a_L = 1.0, p_r = 0.2, p_L = -0.2$
+  \item $R_0 = L_0 = 1, a_r = 0.5, a_L = 0.8, p_r = 0.2, p_L = 0.5$
+\end{enumerate}
+
+For simulation 1:  
+```{r lab2_simulation_1, warning=FALSE, echo=FALSE, out.width="50%"}
+a_r <- 0.5
+a_l <- 0.7
+p_r <- 0.7
+p_l <- 0.9
+
+check_stability(a_r, a_l, p_r, p_l)
+```
+
+For simulation 2..:
+```{r lab2_simulation_2, warning=FALSE, echo=FALSE, out.width="50%"}
+a_r <- 1.0
+a_l <- 1.0
+p_r <- 0.2
+p_l <- -0.2
+
+check_stability(a_r, a_l, p_r, p_l)
+```
+
+For simulation 3..:
+```{r lab2_simulation_3, warning=FALSE, echo=FALSE, out.width="50%"}
+a_r <- 0.5
+a_l <- 0.8
+p_r <- 0.2
+p_l <- 0.5
+
+check_stability(a_r, a_l, p_r, p_l)
+```
+
+We see that for no point are Jury's conditions satisfied. Indeed, if we look at the solutions they do not converge to a single fixed point ($R^{*}=0,L^{*}=0$).
+
+Simulation 3, on the other hand, contains infinitely many fixed points. We will determine, therefore, their family using the equation
+\begin{align*}
+(a_r - 1)\cdot R^{*} + p_R\cdot L^{*} = 0 \\
+(a_L - 1)\cdot L^{*} + p_L\cdot R^{*} = 0
+\end{align*}
+Because we can say that the total feeling of love/hate
+between Romeo and Juliet is initially equal to the $R_0 + L_0$ and preserved throughout the observation period, then we can assume that the $R^{*} + L^{*} = R_0 + L_0$. Because of the initial conditions $R_0 = 1$ and $L_0=1$ we have
+$L^{*} = 2 - R^{*}$. Thus, taking the initial equation, we have a family of fixed points 
+$$\{(R^{*}, L^{*}) : R^{*} = \frac{2\cdot p_R}{(1- a_R)+p_R}, L^{*} = 2-R^{*}\}$$.
+
+
+Thus, for this case, the exact value of the fixed point will be
+```{r lab2_simulation_next, warning=FALSE, echo=FALSE, out.width="50%"}
+a_r <- 0.5
+a_l <- 0.8
+p_r <- 0.2
+p_l <- 0.5
+
+R <- (2*p_r)/(1 - a_r + p_r)
+L <- 2-R
+print(paste0("Wartość R*= ", R))
+print(paste0("Wartość L*= ", L))
+```
+
+We now turn to determining the eigenvalues of the Jacobian. We have a Jacobian equal to
+$$
+J = \begin{bmatrix}
+0.5 & 0.2 \\
+0.5 & 0.8 
+\end{bmatrix}
+$$
+The characteristic equation is thus of the form:
+$$
+\lambda^2 - trJ \cdot \lambda + detJ = 0
+$$
+Inserting the corresponding values $trJ = 1.3$ and $detJ = 0.3$ we have:
+$$\lambda^2 - 1.3\cdot\lambda + 0.3 = 0$$
+skąd 
+$$(\lambda-1)(\lambda-0.3) = 0$$
+so $\lambda_1 = 1$ and $\lambda_2 = 0.3 = 0.5 + 0.8 - 1 = a_r + a_L - 1$ for this specific case.
+From a theorem, we obtain that the point we have determined is stable by virtue of $|\lambda_2| < 1$. It is important to note that the possibility of such an inference with one eigenvalue satisfying the conditions is possible only for linear systems.
+

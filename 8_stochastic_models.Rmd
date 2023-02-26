@@ -1,0 +1,704 @@
+---
+title: "Stochastic models"
+output: pdf_document
+date: '2022-12-08'
+---
+
+
+```{r lab12_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Stochastic mathematical models
+
+When modeling various types of phenomena, it is often necessary to take into account the effect of randomness, which can be done in a number of ways. A natural extension of the deterministic model of ordinary differential equations leads to stochastic differential equation models by adding a noise component to the controlling equations of the system. This approach assumes that there is some degree of noise in the dynamics of the process itself. 
+
+We consider an autonomous $m$-dimensional initial differential problem
+
+$$
+\frac{dx(t)}{dt} = f(x(t)), \quad x(t_0) = x_0, 
+$$
+
+where $x = (x_1, ..., x_m) \in \mathbb{R}^m$, $f:\mathbb{R}^m \rightarrow \mathbb{R}^m$, $(t_0, x_0) \in \mathbb{R}^{m+1}$. If the parameters or coefficients in the deterministic model are subject to some random fluctuations then we can include a noise factor which will lead to a system of stochastic differential equations ($m$-dimensional It$\hat{o}$ equation):
+
+$$
+dX(t) = f(X(t))dt + g(X(t))dB(t), \quad X(t_0) = X_0,
+$$
+
+where $f$ is the deterministic part i.e. coming from a deterministic system and $g:\mathbb{R}^m \rightarrow \mathbb{R}^m$ $dB$ is the stochastic perturbation. Furthermore, $B$ is the $m$-dimensional standard Brownian motion process, and $dB$ is the derivative of It$\hat{o}$. The solution of ${X(t), t \in [t_0, T]}$ of a stochastic problem is called an It$\hat{o}$ process.
+
+We can write the differential form in integral form
+
+$$
+X(t) = X(t_0) + \int_{t_0}^{t}{f(X(s))ds} + \int_{t_0}^{t}{g(X(s))dB(s)}.
+$$
+
+As in the deterministic case, we are not always able to determine the exact solution to the problem. We must then use numerical methods that allow us to approximately observe the dynamics of the process $X$. 
+
+In the construction of numerical methods, we will consider an equidistant discretization of the time interval $[t_0, T]$ ie:
+
+$$
+t_n = t_0 + n\Delta t, \quad \Delta t = \frac{T - t_0}{N}, \quad n=0,1, ..., N,
+$$
+
+where $N$ is a sufficiently large natural number defining the number of subintervals of a segment $[t_0, T]$. 
+
+## Euler-Maruyama approximation method.
+
+The simplest method of approximation of the It$\hat{o}$ process is the Euler method called the Euler-Maruyama method. The Euler-Maruyama approximation of a process $X$ is called a continuous stochastic process $\{Y(t), t\in [t_0, T]\}$ satisfying a recursive equation with a deterministic initial condition i.e.:
+
+$$
+Y_{n+1} = Y_n + f(Y_n)\Delta t + g(Y_n)\Delta B_n, \quad n=0,1,...,N-1 \\
+Y_0 = x_0,
+$$
+
+where $Y_n = Y(t_n)$, $\Delta B_n = B(t_n) - B(t_n - \Delta t) = \sqrt{\Delta t}\epsilon_n$, $n=1,...,N$. Between the designated discretization points where we have no information about the process $Y$, the process It$\hat{o}$ is approximated by linear interpolation, when $g\equiv 0$ then the method reduces to a deterministic Euler scheme for the differential equation. 
+
+## Milstein's approximation method
+Another method is the Milstein method, which has greater accuracy than the Euler-Maruyama method, since it additionally uses a second-order expression from the It$\hat{o}$-Taylor expansion around a point for the stochastic case.
+
+The Milstein approximation of the process $X$ is called a continuous stochastic process $\{Z(t), t\in [t_0, T]\}$ satisfying a recursive equation with a deterministic initial condition, viz:
+
+$$
+Z_{n+1} = Z_n + f(Z_n)\Delta t + g(Z_n)\Delta B_n + \frac{1}{2}g(Z_n)g_X(Z_n)((\Delta B_n)^2 - \Delta t), \\
+Z_0 = x_0,
+$$
+
+where $n=0,1,...,N-1$ and $g_X = \frac{dg}{dX}$.
+
+## Simulation numerical methods
+
+We will consider the process It$\hat{o}$ $\{X(t), t\in [0,T]\}$ satisfying the linear stochastic initial problem.
+
+$$
+dX(t) = aX(t)dt + bX(t)dB(t), \quad X(0) = X_0
+$$
+
+for $t(t)\in [0,T]$. In this case, $f=aX(t)$ and $g(X(t)) = bX(t)$, where $a$, $b$ are constants. The solution can be represented in exact form
+
+$$
+X(t) = X_0 \exp((a - \frac{1}{2}b^2)t + dB(t)).
+$$
+
+We will compare the exact solution determined in the discrete points with the form of the trajectory of the process $Y$ obtained by the Euler method, i.e.:
+
+$$
+X(t_n) = X_0 \exp((a-\frac{1}{2}b^2)t_n + b\sum_{i=1}^{n}{\Delta B_{i-1}}).
+$$
+To do this, we will transform the function from the previous lab to additionally return a vector of values $\Delta B_n = \sqrt{\Delta t}\epsilon_n$ for $n=1, ..., N$.
+
+```{r lab12_funkcja, warning= FALSE, echo=TRUE, results='hide', message=FALSE}
+brown <- function(N, T, s){
+  set.seed(s)
+  b <- cumsum(c(0, sqrt(T/N) * rnorm(N, 0, 1)))
+  b_d <- sqrt(T/N) * rnorm(N, 0, 1)
+  return(list(B = b, delta_B = b_d))
+}
+
+```
+
+
+WLet's now generate the difference vector along with the trajectory of the Brownian motion process for $T=1$ and for $N=2^m$, where $m=12$ at a fixed $\omega$, i.e. a single realization of the process.  
+
+
+```{r lab12_trajektorie1, echo=FALSE, results='hide', message=FALSE}
+Ti <- 1
+m <- 12
+N <- 2^m
+
+t <- seq(0,Ti, Ti/N)
+
+B_v <- brown(N, Ti, s=10)
+B <- B_v$B
+delta_B <- B_v$delta_B
+```
+
+For the values thus generated and the parameters assumed, we will find the exact solution by assuming the following
+
+$$
+(a, b, X_0) = (1.5, 1, 1).
+$$
+```{r lab12_trajektorie2, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+
+stochastic_solution <- function(a, b, X_0, t, N, delta_B){
+  X_t <- rep(0, N)
+  
+  for (i in 1:N){
+    dBs <- sum(delta_B[1:i])
+    X_t[i] <- X_0 * exp((a - 1/2 * b^2)*t[i] + b*(dBs))
+  }
+  
+  return(c(X_0, X_t))
+}
+
+X_t <- stochastic_solution(a, b, X_0, t, N, delta_B)
+
+dt <- data.frame("X_t"= X_t, 
+                 "t" = t)
+```
+
+The results are shown below in the chart .
+
+```{r lab12_trakektorie1_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(ggplot2)
+library(latex2exp)
+ggplot(dt, aes(t, X_t)) + geom_line() + ggtitle("Process trajectory for a fixed event") + xlab(TeX("$t=[0,T]$")) + ylab(TeX("$X(t, \\omega)$"))
+```
+
+We will then generate the trajectory of the Brownian motion process for $N=2^8$ and present it in a single graph with the exact solution $X(t_n)$ for different noise parameters $b$ taken from the interval $[0,1]$ with a step of $0.1$.  
+
+```{r lab12_trajektorie3, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- seq(0.1,1,0.1)
+X_0 <- 1
+Ti <- 1
+N <- 2^8
+t <- seq(0,Ti, Ti/N)
+B_v <- brown(N, Ti, s=15)
+B <- B_v$B
+delta_B <- B_v$delta_B
+
+X_t <- stochastic_solution(a, 0, X_0, t, N, delta_B)
+X_t_l <- list(X_t)
+
+len <- length(X_t_l)
+szum <- list(rep(0, length(X_t)))
+czas <- list(t)
+
+for (i in 1:length(b)){
+  X_t <- stochastic_solution(a, b[i], X_0, t, N, delta_B)
+  X_t_l[[len + i]] <- X_t
+  
+  szum[[len+i]] <- rep(b[i], length(X_t))
+
+  czas[[len+i]] <- t
+}
+
+dt <- data.frame("X_t" = unlist(X_t_l), "t" = unlist(czas), "b"=unlist(szum))
+
+```
+
+
+```{r lab12_trakektorie2_wykres, echo=FALSE, results='hide', message=FALSE}
+ggplot() +
+  geom_line(data = dt[dt$b ==0,], aes(x = t, y=X_t), color="red") + 
+  geom_line(data = dt[dt$b ==0.1,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.2,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.3,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.4,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.5,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.6,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.7,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.8,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==0.9,], aes(x = t, y=X_t), color="black") + 
+  geom_line(data = dt[dt$b ==1,], aes(x = t, y=X_t), color="black") + 
+  
+  ggtitle("Process trajectory for a fixed event") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$B(t, \\omega)$"))
+```
+
+We can see how the noise parameter affects the stochasticity of a given process. Indeed, it regulates the effect of Brownian motion trajectories on the exact solution by which the larger the value of the parameter, the larger the deviation.
+
+We will now generate Brownian motion trajectories for $N=2^8$ and $T=1$ and the parameter set as before, i.e. $(a, b, X_0) = (1.5, 1, 1)$. 
+
+Let us also introduce an approximation algorithm for the $X$ Euler-Maruyama process. This approximation is called the stochastic process $\{Y(t), t\in [t_0, T]\}$ satisfying the recursive equation
+
+$$
+\begin{cases}
+Y_{n+1} = Y_n + f(Y_n)\Delta t + g(Y_n)\Delta B_n, \: n=1, ..., N-1, \\
+Y_0 = x_0,
+\end{cases}
+$$
+
+gdzie $Y_n = Y(t_n)$, $\Delta B_n = B(t_n) - B(t_n - \Delta t) = \sqrt{\Delta t}\epsilon_n$, $n=1, ..., N$. 
+
+
+Let us also introduce Milstein's approximation algorithm. Such an approximation is called a stochastic process $\{Z(t), t\in [t_0, T]\}$ satisfying the recursive equation
+
+$$
+\begin{cases}
+Z_{n+1} = Z_n + f(Z_n)\Delta t + g(Z_n)\Delta B_n + \frac{1}{2}g(Z_n)g_X(Z_n)((\Delta B_n)^2 - \Delta t) \\
+Z_0 = x_0
+\end{cases}
+$$
+
+for $n=0, ..., N-1$, $g_X = \frac{\partial g}{\partial X}$. 
+
+
+In our case, considering the process It$\hat{o}$ $X(t)$ satisfying a linear stochastic differential equation
+
+$$
+dX(t) = aX(t) dt + bX(t)dB(t), \: X(0)=x_0
+$$
+
+In the denotations from the algorithms, we take
+$f(X(t)) = aX(t)$ and $g(X(t)) = bX(t)$ where $a$ and $b$ are constants. For this reason, we will represent the trajectories of the process $Y(t)$ obtained by the Euler-Maruyama method as an iterative solution of the
+
+$$
+Y_{n+1}=Y_n + aY_{n}\Delta t + bY_{n}\Delta B_n
+$$
+
+
+and in Milstein's method the trajectories of the process $Z$ as an iterative solution
+
+$$
+Z_{n+1} = Z_n + aZ_{n}\Delta t + bZ_n \Delta B_n + \frac{1}{2}bZ_n\cdot b\cdot ((\Delta B_n)^2 - \Delta t).
+$$
+
+
+
+Using these algorithms, we will determine the trajectories of the process $Y_n$, $Z_n$ for $N\in \{2^2, 2^4, 2^6, 2^8\}$ and contrast them with the trajectory of $X_n$. 
+
+```{r lab12_milstein_euler, echo=FALSE, results='hide', message=FALSE}
+em <- function(a, b, X_0, t, N,delta_B){
+  Y_t <- rep(0, N+1)
+
+  Y_t[1] <- X_0
+  delta_t <- Ti/N
+  
+  for (i in 1:N){
+
+    Y_t[i+1] <- Y_t[i] + a*Y_t[i]*delta_t + b*Y_t[i]*delta_B[i]
+  }
+  
+  return(Y_t)
+}
+
+m <- function(a, b, X_0, t, N,delta_B){
+  Z_t <- rep(0, N+1)
+  Z_t[1] <- X_0
+  delta_t <- Ti/N
+  
+  for (i in 1:N){
+    Z_t[i+1] <- Z_t[i] +
+      a*Z_t[i]*delta_t +
+      b*Z_t[i]*delta_B[i] +
+      1/2*b*Z_t[i]*b*(delta_B[i]**2 - delta_t)
+  }
+  
+  return(Z_t)
+}
+
+```
+
+
+
+```{r lab12_trajektorie4, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+Ti <- 1
+N <- c(2^2, 2^4, 2^6, 2^8)
+K <- c(2^6, 2^4, 2^2, 1)
+X_t = c()
+Y_t = c()
+Z_t = c()
+czas <- c()
+N_s <- c()
+i <- 10
+B_v <- brown(2^8, Ti, s=i)
+B <- B_v$B
+delta_B <- B_v$delta_B
+
+for (j in 1:length(N)){
+  n = N[j]
+  k = K[j]
+  
+  t <- seq(0,Ti, Ti/n)
+  delta_B_split <- split(delta_B, ceiling(seq_along(delta_B)/k))
+  dBs = c()
+  for (dB_split in delta_B_split){
+    dBs = c(dBs, sum(dB_split))
+  }
+  
+  X_t <- c(X_t, stochastic_solution(a, b, X_0, t, N=n, dBs))
+
+  Y_t <- c(Y_t, em(a, b, X_0, t, N=n, dBs))
+  
+  Z_t <- c(Z_t, m(a, b, X_0, t, N=n, dBs))
+
+  czas <- c(czas, t)
+  
+  len <- length(t)
+  N_s <- c(N_s, rep(n, len))
+  i <- i+1
+}
+
+
+dt <- data.frame("t" = czas,
+                 "X_t" = X_t,
+                 "Y_t" = Y_t,
+                 "Z_t" = Z_t,
+                 "N" = N_s)
+
+```
+
+```{r lab12_trakektorie4_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ggplot() +
+  geom_line(data = dt[dt$N==2^8,], aes(x = t, y=X_t, color="Solution"), size=1.1) + 
+  geom_line(data = dt[dt$N ==2^8,], aes(x = t, y=Y_t, color="N=2^8")) + 
+  geom_line(data = dt[dt$N ==2^6,], aes(x = t, y=Y_t, color="N=2^6")) + 
+  geom_line(data = dt[dt$N ==2^4,], aes(x = t, y=Y_t, color="N=2^4")) + 
+  geom_line(data = dt[dt$N ==2^2,], aes(x = t, y=Y_t, color="N=2^2")) + 
+  
+  scale_color_manual(name = "", values = c("Solution" = "black",
+                                                   "N=2^8"="brown",
+                                                   "N=2^6"="blue",
+                                                   "N=2^4"="purple",
+                                                   "N=2^2"="darkblue")) + 
+  ggtitle("Approximation by the Euler-Maruyama method") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+
+ggplot() +
+  geom_line(data = dt[dt$N==2^8,], aes(x = t, y=X_t, color="Solution"), size=1.1) + 
+  geom_line(data = dt[dt$N ==2^8,], aes(x = t, y=Z_t, color="N=2^8")) + 
+  geom_line(data = dt[dt$N ==2^6,], aes(x = t, y=Z_t, color="N=2^6")) + 
+  geom_line(data = dt[dt$N ==2^4,], aes(x = t, y=Z_t, color="N=2^4")) + 
+  geom_line(data = dt[dt$N ==2^2,], aes(x = t, y=Z_t, color="N=2^2")) + 
+  
+  scale_color_manual(name = "", values = c("Solution" = "black",
+                                                   "N=2^8"="brown",
+                                                   "N=2^6"="blue",
+                                                   "N=2^4"="purple",
+                                                   "N=2^2"="darkblue")) +
+  
+  ggtitle("Approximation by the Milstein method") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+```
+
+
+The trajectories of the exact solution are shown by the bold black line. We can observe how both methods approximate the real solution very accurately at the same pitch. Although by decreasing the value of $N$ we observe an increasingly poorer fit, the methods still reflect the dynamics of the real solution, and the calculated estimates are surprisingly close to the true values. Let's repeat the task for another implementation. 
+
+```{r lab12_trajektorie5, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+Ti <- 1
+N <- c(2^2, 2^4, 2^6, 2^8)
+K <- c(2^6, 2^4, 2^2, 1)
+i = 50
+B_v <- brown(2^8, Ti, s=i)
+B <- B_v$B
+delta_B <- B_v$delta_B
+X_t = c()
+Y_t = c()
+Z_t = c()
+czas <- c()
+N_s <- c()
+
+
+for (j in 1:length(N)){
+  n <- N[j]
+  k <- K[j]
+  t <- seq(0,Ti, Ti/n)
+  delta_B_split <- split(delta_B, ceiling(seq_along(delta_B)/k))
+  dBs = c()
+  for (dB_split in delta_B_split){
+    dBs = c(dBs, sum(dB_split))
+  }
+  
+
+  X_t <- c(X_t, stochastic_solution(a, b, X_0, t, N=n, dBs))
+
+  Y_t <- c(Y_t, em(a, b, X_0, t, N=n, dBs))
+  
+  Z_t <- c(Z_t, m(a, b, X_0, t, N=n, dBs))
+
+  czas <- c(czas, t)
+  
+  len <- length(t)
+  N_s <- c(N_s, rep(n, len))
+  i <- i+1
+}
+
+
+dt <- data.frame("t" = czas,
+                 "X_t" = X_t,
+                 "Y_t" = Y_t,
+                 "Z_t" = Z_t,
+                 "N" = N_s)
+
+```
+
+```{r lab12_trakektorie5_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ggplot() +
+  geom_line(data = dt[dt$N==2^8,], aes(x = t, y=X_t, color="Solution"), size=1.1) + 
+  geom_line(data = dt[dt$N ==2^8,], aes(x = t, y=Y_t, color="N=2^8")) + 
+  geom_line(data = dt[dt$N ==2^6,], aes(x = t, y=Y_t, color="N=2^6")) + 
+  geom_line(data = dt[dt$N ==2^4,], aes(x = t, y=Y_t, color="N=2^4")) + 
+  geom_line(data = dt[dt$N ==2^2,], aes(x = t, y=Y_t, color="N=2^2")) + 
+  
+  scale_color_manual(name = "", values = c("Solution" = "black",
+                                                   "N=2^8"="brown",
+                                                   "N=2^6"="blue",
+                                                   "N=2^4"="purple",
+                                                   "N=2^2"="darkblue")) + 
+  ggtitle("Approximation by the Eulera-Maruyamy method") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+
+ggplot() +
+  geom_line(data = dt[dt$N==2^8,], aes(x = t, y=X_t, color="Solution"), size=1.1) + 
+  geom_line(data = dt[dt$N ==2^8,], aes(x = t, y=Z_t, color="N=2^8")) + 
+  geom_line(data = dt[dt$N ==2^6,], aes(x = t, y=Z_t, color="N=2^6")) + 
+  geom_line(data = dt[dt$N ==2^4,], aes(x = t, y=Z_t, color="N=2^4")) + 
+  geom_line(data = dt[dt$N ==2^2,], aes(x = t, y=Z_t, color="N=2^2")) + 
+  
+  scale_color_manual(name = "", values = c("Solution" = "black",
+                                                   "N=2^8"="brown",
+                                                   "N=2^6"="blue",
+                                                   "N=2^4"="purple",
+                                                   "N=2^2"="darkblue")) +
+  
+  ggtitle("Approximation by the Milstein method") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+```
+
+
+As you can see, the situation is analogous. Let's consider one more realization. 
+
+```{r lab12_trajektorie6, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+Ti <- 1
+N <- c(2^2, 2^4, 2^6, 2^8)
+K <- c(2^6, 2^4, 2^2, 1)
+i = 100
+B_v <- brown(2^8, Ti, s=i)
+B <- B_v$B
+delta_B <- B_v$delta_B
+X_t = c()
+Y_t = c()
+Z_t = c()
+czas <- c()
+N_s <- c()
+
+
+for (j in 1:length(N)){
+  n <- N[j]
+  k <- K[j]
+  t <- seq(0,Ti, Ti/n)
+  delta_B_split <- split(delta_B, ceiling(seq_along(delta_B)/k))
+  dBs = c()
+  for (dB_split in delta_B_split){
+    dBs = c(dBs, sum(dB_split))
+  }
+  
+
+  X_t <- c(X_t, stochastic_solution(a, b, X_0, t, N=n, dBs))
+
+  Y_t <- c(Y_t, em(a, b, X_0, t, N=n, dBs))
+  
+  Z_t <- c(Z_t, m(a, b, X_0, t, N=n, dBs))
+
+  czas <- c(czas, t)
+  
+  len <- length(t)
+  N_s <- c(N_s, rep(n, len))
+  i <- i+1
+}
+
+
+dt <- data.frame("t" = czas,
+                 "X_t" = X_t,
+                 "Y_t" = Y_t,
+                 "Z_t" = Z_t,
+                 "N" = N_s)
+
+
+```
+
+```{r lab12_trakektorie6_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ggplot() +
+  geom_line(data = dt[dt$N==2^8,], aes(x = t, y=X_t, color="Solution"), size=1.1) + 
+  geom_line(data = dt[dt$N ==2^8,], aes(x = t, y=Y_t, color="N=2^8")) + 
+  geom_line(data = dt[dt$N ==2^6,], aes(x = t, y=Y_t, color="N=2^6")) + 
+  geom_line(data = dt[dt$N ==2^4,], aes(x = t, y=Y_t, color="N=2^4")) + 
+  geom_line(data = dt[dt$N ==2^2,], aes(x = t, y=Y_t, color="N=2^2")) + 
+  
+  scale_color_manual(name = "", values = c("Solution" = "black",
+                                                   "N=2^8"="brown",
+                                                   "N=2^6"="blue",
+                                                   "N=2^4"="purple",
+                                                   "N=2^2"="darkblue")) + 
+  ggtitle("Approximation by the Eulera-Maruyamy method") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+
+ggplot() +
+  geom_line(data = dt[dt$N==2^8,], aes(x = t, y=X_t, color="Solution"), size=1.1) + 
+  geom_line(data = dt[dt$N ==2^8,], aes(x = t, y=Z_t, color="N=2^8")) + 
+  geom_line(data = dt[dt$N ==2^6,], aes(x = t, y=Z_t, color="N=2^6")) + 
+  geom_line(data = dt[dt$N ==2^4,], aes(x = t, y=Z_t, color="N=2^4")) + 
+  geom_line(data = dt[dt$N ==2^2,], aes(x = t, y=Z_t, color="N=2^2")) + 
+  
+  scale_color_manual(name = "", values = c("Solution" = "black",
+                                                   "N=2^8"="brown",
+                                                   "N=2^6"="blue",
+                                                   "N=2^4"="purple",
+                                                   "N=2^2"="darkblue")) +
+  
+  ggtitle("Approximation by the Milstein method") + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+```
+
+
+Again, the same conclusions. So indeed the obtained approximations are very accurate at the same pitch. When the value of $N$ is low then, as mentioned, the approximations are significantly more outliers than the actual solutions but nevertheless shape fits the trajectory of the exact solution and the difference is mainly on the value reached by the process. Let us now present the exact solution and its approximations on the same value of the division. In the first place for $N=2^5$. 
+
+```{r lab12_trajektorie7, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+Ti <- 1
+N <- 2^5
+X_t = c()
+Y_t = c()
+Z_t = c()
+czas <- c()
+N_s <- c()
+
+i = 10
+t <- seq(0,Ti, Ti/N)
+B_v <- brown(N, Ti, s=i)
+B <- B_v$B
+delta_B <- B_v$delta_B
+
+X_t <- c(X_t, stochastic_solution(a, b, X_0, t, N=N, delta_B))
+
+Y_t <- c(Y_t, em(a, b, X_0, t, N=N, delta_B))
+  
+Z_t <- c(Z_t, m(a, b, X_0, t, N=N, delta_B))
+
+czas <- c(czas, t, t, t)
+  
+len <- length(t)
+Metoda <- c(rep("Exact solution", len), 
+            rep("Euler-Maruyama", len),
+            rep("Milstein", len))
+X_t <- c(X_t, Y_t, Z_t)
+
+dt <- data.frame("t" = czas,
+                 "X_t" = X_t,
+                 "Method" = Metoda)
+
+```
+
+```{r lab12_trakektorie7_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ggplot() +
+  geom_line(data = dt, aes(x = t, y=X_t, color=Metoda)) +
+  ggtitle(TeX("$N=2^5$")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+
+```
+
+We can observe the same shape of the trajectory with slight deviations of the approximation from the exact solution. Let's check $N=2^6$.
+
+
+```{r lab12_trajektorie8, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+Ti <- 1
+N <- 2^6
+X_t = c()
+Y_t = c()
+Z_t = c()
+czas <- c()
+N_s <- c()
+
+i = 10
+t <- seq(0,Ti, Ti/N)
+B_v <- brown(N, Ti, s=i)
+B <- B_v$B
+delta_B <- B_v$delta_B
+
+X_t <- c(X_t, stochastic_solution(a, b, X_0, t, N=N, delta_B))
+
+Y_t <- c(Y_t, em(a, b, X_0, t, N=N, delta_B))
+  
+Z_t <- c(Z_t, m(a, b, X_0, t, N=N, delta_B))
+
+czas <- c(czas, t, t, t)
+  
+len <- length(t)
+Metoda <- c(rep("Exact solution", len), 
+            rep("Euler-Maruyama", len),
+            rep("Milstein", len))
+X_t <- c(X_t, Y_t, Z_t)
+
+dt <- data.frame("t" = czas,
+                 "X_t" = X_t,
+                 "Method" = Metoda)
+
+```
+```{r lab12_trakektorie8_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ggplot() +
+  geom_line(data = dt, aes(x = t, y=X_t, color=Metoda)) +
+  ggtitle(TeX("$N=2^6$")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+
+```
+
+Here juz these deviations practically disappear and it is hard to find differences. Only at the end of the interval they begin to reveal themselves. Let's check $N=2^{10}$. 
+
+```{r lab12_trajektorie9, echo=FALSE, results='hide', message=FALSE}
+a <- 1.5
+b <- 1
+X_0 <- 1
+Ti <- 1
+N <- 2^(10)
+X_t = c()
+Y_t = c()
+Z_t = c()
+czas <- c()
+N_s <- c()
+
+i = 10
+t <- seq(0,Ti, Ti/N)
+B_v <- brown(N, Ti, s=i)
+B <- B_v$B
+delta_B <- B_v$delta_B
+
+X_t <- c(X_t, stochastic_solution(a, b, X_0, t, N=N, delta_B))
+
+Y_t <- c(Y_t, em(a, b, X_0, t, N=N, delta_B))
+  
+Z_t <- c(Z_t, m(a, b, X_0, t, N=N, delta_B))
+
+czas <- c(czas, t, t, t)
+  
+len <- length(t)
+Metoda <- c(rep("Exact solution", len), 
+            rep("Euler-Maruyama", len),
+            rep("Milstein", len))
+X_t <- c(X_t, Y_t, Z_t)
+
+dt <- data.frame("t" = czas,
+                 "X_t" = X_t,
+                 "Method" = Metoda)
+
+```
+```{r lab12_trakektorie9_wykres, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+ggplot() +
+  geom_line(data = dt, aes(x = t, y=X_t, color=Metoda)) +
+  ggtitle(TeX("$N=2^{10}$")) + 
+  xlab(TeX("$t=[0,T]$")) + 
+  ylab(TeX("$X(t, \\omega)$"))
+
+```
+
+And in this situation the exact solution is already almost completely covered by the approximations. The large scale makes it a little difficult to interpret the results, but we can see that while the Milstein method was noticeable in the previous situation, in this one it is completely "covered" by the exact solution. This suggests better accuracy than the Euler-Milstein method, which is due to an additional factor in the form of a partial derivative after the function responsible for the stochastic growth in the process. 
+
+
+All the simulations carried out show the enormity of the possibilities of numerical methods and the potential of this. Solving a stochastic differential equation is not an easy task, and thanks to numerical methods with high correctness we are able to estimate these solutions knowing only the original form of the equation. 

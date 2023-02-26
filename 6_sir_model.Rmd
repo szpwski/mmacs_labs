@@ -1,0 +1,552 @@
+---
+title: "Parameter estimation and population growth model"
+output: pdf_document
+date: '2022-12-08'
+---
+
+
+```{r lab10_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Parameter estimation and population growth model
+
+## Parameter estimation
+
+### Theoretical part
+
+We assume that $X_1, ..., X_n$ are independent random variables and the observed data $x_i$, $i=1,...,n$ are realizations of random variables $X_i$ with Pareto distribution with density function
+$$
+f(x_i | x_0, \lambda) = \lambda x_0^\lambda x_i^{-\lambda-1},
+$$
+Where $x_i \geq x_0$, \lambda > 1$, $x_0$ fixed. 
+Then the credence function for the parameter $\lambda$ has the following form (since these variables are independent then the product of the density function is simply their product):
+$$
+\mathcal{L}(\lambda) = \prod_{i=1}^{n}{f(x_i|x_0, \lambda)} = \prod_{i=1}^{n}{\lambda x_0^\lambda x_i^{-\lambda-1}} = \lambda^n x_0^{n\lambda}\prod_{i=1}^{n}{x_i^{-\lambda-1}} = \lambda^n x_0^{n\lambda}(x_1^{-\lambda - 1}\cdot ... \cdot x_n^{-\lambda - 1}).
+$$
+
+Taking the logarithm of the credibility function, we get:
+$$
+\mathcal{L}\mathcal{L}(\lambda) = \ln \mathcal{L}(\lambda) = \ln (\lambda^n x_0^{n\lambda} \prod_{i=1}^{n}{x_i^{-\lambda -1}}) = \ln (\lambda^n x_0^{n\lambda}(x_1^{-\lambda-1}\cdot ... \cdot x_n^{-\lambda-1}))
+$$
+We are looking for the estimate of the highest reliability of the parameter $\lambda$ so we need to find the point $\overline{\lambda}$ for which the function $\mathcal{L}\mathcal{L}(\lambda)$ reaches its extremum. Thus, we are looking for the solution of the equation $\frac{d\mathcal{L}\mathcal{L}(\lambda)}{d\lambda} = 0$. Let's start by transforming the function $\mathcal{L}\mathcal{L}(\lambda)$ i.e.:
+$$
+\mathcal{L}\mathcal{L}(\lambda) = \ln (\lambda^n x_0^{n\lambda}(x_1^{-\lambda-1}\cdot ... \cdot x_n^{-\lambda-1})) = \ln{\lambda^n} + \ln{x_0^{n\lambda}} + \sum_{i=1}^{n}{\ln{x_i^{-\lambda-1}}} = n\ln{\lambda} + n\lambda\ln{x_0} + (-\lambda - 1)\sum_{i=1}^{n}{\ln{x_i}}
+$$
+Now taking the derivative after $\lambda$ we get:
+$$
+\frac{d\mathcal{L}\mathcal{L}(\lambda)}{d\lambda} = \frac{d}{d\lambda}(n\ln{\lambda} + n\lambda\ln{x_0} + (-\lambda - 1)\sum_{i=1}^{n}{\ln{x_i}}) = \frac{d}{d\lambda}n\ln{\lambda} + \frac{d}{d\lambda}n\lambda\ln{x_0} + \frac{d}{d\lambda}(-\lambda -1)\sum_{i=1}^{n}{\ln{x_i}} = \frac{n}{\lambda} + n\ln{x_0} - \sum_{i=1}^{n}{\ln{x_i}}
+$$
+and comparing $\frac{d\mathcal{L}\mathcal{L}(\lambda)}{d\lambda} = 0$ we get:
+$$
+\frac{n}{\lambda} + n\ln{x_0} - \sum_{i=1}^{n}{\ln{x_i}} = 0
+$$
+$$
+\frac{n}{\lambda} = \sum_{i=1}^{n}{\ln{x_i}} - n\ln{x_0}
+$$
+$$
+\lambda = \frac{1}{\frac{1}{n}\sum_{i=1}^{n}{\ln{x_i}} - \ln{x_0}}
+$$
+Thus, we obtain that the estimate of the highest reliability of the parameter is
+$$
+\overline{\lambda} = \frac{1}{\frac{1}{n}\sum_{i=1}^{n}{\ln{x_i}} - \ln{x_0}}.
+$$
+
+As initially thought. 
+
+### Simulation part
+
+We will proceed to the simulation part. To do this, we will load the file \textit{Pareto}, which contains a 20-element sample with a Pareto distribution generated with a density function with parameter $\lambda = 1.5$. We will also define a function $-\mathcal{L}\mathcal{L}(\lambda)$, which we will minimize (equal to maximizing the function $\mathcal{L}\mathcal{L}$). 
+
+```{r lab10_symulacja, warning= FALSE, echo=FALSE, results='hide', message=FALSE}
+library(tidyverse, , warn.conflicts=F, quietly=T)
+
+pareto <- read.csv(file = 'Pareto.csv', sep=';')
+
+ll <- function(lambda, x_0, x){
+  n <- length(x)
+  N <- length(lambda)
+
+  r <- rep(0, N)
+  for (i in 1:N){
+    l <- lambda[i]
+    r[i] <- -log((l^n) * (x_0^(l * n)) * (prod(x^(-l - 1))))
+  }
+
+  return(r)
+  
+}
+
+```
+
+Let's now plot the defined function for our sample and parameters $x_0 = 0.9$ and $\lambda \in [1,3]$.
+
+```{r lab10_symulacja_wykres, echo=FALSE}
+x_0 <- 0.9 
+x <- pareto$probka
+l <- seq(1, 3, 0.1)
+
+ll_l <- ll(l, x_0, x)
+
+plot(ll_l~l , type="l" , bty="l" , xlab=expression(lambda) , ylab="Value" , col='blue' , lwd=1)
+
+```
+
+Using the function \textit{nlm} we will minimize the function $-\mathcal{L}\mathcal{L}$ in order to obtain an estimate of the optimal parameter $\overline{\lambda}$. 
+
+```{r lab10_symulacja_nlm, echo=TRUE, message=FALSE}
+l_0 <- 1.1
+min_l <- nlm(f=ll, p= l_0, x_0=x_0, x =x)
+```
+
+Thus, we obtained an estimate of the minimum of the function equal to $21.44467$ for the parameter $\overline{\lambda} = 1.577962$. It is close to the known parameter ${\lambda} = 1.5$ of the Pareto distribution of the sample. We will now compare it with the theoretical estimate by us derived for the same data sample. 
+
+```{r lab10_symulacja_t, echo=TRUE, message=FALSE}
+n <- length(x)
+
+min_l_t <- 1 / (1/n * (sum(log(x))) - log(x_0))
+min_ll <- ll(min_l_t, x_0, x)
+```
+
+In this case, we have a minimum value equal to $21.44467$ for the parameter $\overline{\lambda} = 1.577962$, so we see a correspondence between the simulation solution and the theoretical value.
+
+Now let's check the results for the initial values $(x_0, \lambda_0) = (0.85, 1)$.
+
+```{r lab10_symulacja_nlm2, echo=TRUE, message=FALSE}
+l_0 <- 1
+x_0 <- 0.85
+
+min_l <- nlm(f=ll, p= l_0, x_0=x_0, x =x)
+```
+
+We get the minimum value of the function equal to $23.17178$ and an estimate of the parameter $\overline{\lambda}=1.447414$, which is still close to the actual value of the parameter. Let's check the theoretical estimation for the new starting point. 
+
+```{r lab10_symulacja_t2, echo=TRUE, message=FALSE}
+min_l_t <- 1 / (1/n * (sum(log(x))) - log(x_0))
+min_ll <- ll(min_l_t, x_0, x)
+```
+
+We get a minimum value of $23.17178$ and an estimate of the parameter $\overline{\lambda}=1.447415$, so again the results are the same. Consider the other end of the $\lambda$ interval along with a new starting point $(x_0,\lambda_0) = (0.95, 3)$.
+
+```{r lab10_symulacja_nlm3, warning= FALSE, echo=TRUE, results='hide', message=FALSE}
+l_0 <- 3
+x_0 <- 0.95
+
+min_l <- nlm(f=ll, p= l_0, x_0=x_0, x =x)
+```
+
+Now the function \textit{nlm} based on the Newton-type optimization algorithm has not reached convergence. The minimum value of the function determined is equal to $-709.7826$, and the estimate is $-55.21543$. Let's see the results for the theoretical solution. 
+
+```{r lab10_symulacja_t3, echo=TRUE, message=FALSE}
+min_l_t <- 1 / (1/n * (sum(log(x))) - log(x_0))
+min_ll <- ll(min_l_t, x_0, x)
+```
+
+We get the value of the function equal to $19.66114$ with the estimation of the parameter $\overline{\lambda} = 1.725145$. While the estimation deviates more from the actual value of the parameter, the error is still negligible. The Newton-type optimization algorithm is based on the expansion of the function into a second-order Taylor series hence the possibility of divergence when the initial values are incorrectly chosen. We will simulate the potential parameter estimates depending on the choice of the initial $\lambda_0$ value to see what effect this has on the optimization result. 
+
+
+```{r lab10_symulacja2_wykres, warning= FALSE, echo=FALSE, results='hide', message=FALSE}
+x_0 <- 0.9 
+x <- pareto$probka
+l <- seq(1, 3, 0.3)
+N <- length(l)
+
+nlm_res <- rep(0, N)
+for (i in 1:N){
+  tryCatch(
+    {
+      nl <- nlm(f=ll, p=l[i], x_0 = x_0, x=x)
+      r <- nl$estimate  
+    },
+    error=function(cond){
+      r <- NA
+    }
+  )
+  nlm_res[i] <- r
+}
+
+plot(nlm_res~l , type="l" , bty="l" , xlab=expression(lambda) , ylab="Parameter estimation" , col='blue' , lwd=1)
+
+```
+
+As speculated, the initial value of $\lambda_0$ affects the obtained optimization results. As the value increases, the algorithm becomes divergent. Constraints should be imposed on the optimization of the parameter, which are available in other packages. This simulation shows the importance of the choice of initial parameters. 
+
+## Population growth model
+
+Let us denote by $N_D$ the vector of observed population abundances for the specified years. By $N(t)$ we will denote the population size at time $t \geq 0$. The dynamics of population change can be described by Verhulst's logistic growth equation, we assume the model:
+$$
+\frac{dN(t)}{dt} = rN(t)(1-\frac{N(t)}{K}), \quad N(0)=N_0
+$$
+Where $N_0 > 0$ is the initial value of the population size, $r>0$ the population growth parameter and $K>0$ is the capacity of the environment. Such a vector of parameters takes the form $p=\{N_0, r, K\}$. We determine the initial condition $N_0$ from the data. Solving the above problem, we get a solution of the form
+$$
+N(t, p) = \frac{N_0 K}{N_0 + (K-N_0)e^{-rt}}.
+$$
+We want to minimize the error of least squares estimation of population size, which is of the following form
+$$
+BNK(p) = \sum_{i=1}^{n}{(\overline{N_D} - N(t_i, p))^2},
+$$
+where $\overline{N_D} = \frac{N_D}{1000}$ is the scaled value (you can check the behavior without scaling). In \textbf{R}, we can use the functions \textit{scale()} to scale and the function \textit{nlm()} to minimize the BNK from where we get the parameter estimate.
+
+We load a file containing the population size of Gdansk from 1950 to 2015 with a 5-year interval. We estimate by BNK minimization the $p$ parameters of the population model based on this data assuming 
+$$
+\overline{N_D} = \frac{N_D}{10000}, 
+$$
+$$
+p = (\overline{N_0}, r, K) = (\overline{N_D}(1), 0.01, 2\cdot \max{(\overline{N_D})}).
+$$
+
+
+```{r lab10_populacja_funkcje, warning= FALSE, echo=FALSE, results='hide', message=FALSE}
+df <- read.csv(file = 'LudnoscGdanska.csv', sep=';')
+
+#Defining scaled values
+df$Liczebnosc_skalowana = df$Liczebnosc/10000
+
+#Initial parameters
+N_0_s <- df$Liczebnosc_skalowana[1]
+r <- 0.01
+K <- 2*max(df$Liczebnosc_skalowana)
+
+p <- c(N_0_s, r, K)
+
+#Time sequence
+t <- 1950+seq(0,65,5)
+
+#Functions estimates solution
+N_t <- function(t, p){
+  N_0 <- p[1]
+  r <- p[2]
+  K <- p[3]
+  
+  return((N_0*K)/(N_0 + (K-N_0)*exp(-r*t)))
+  }
+
+#Least squares loss function
+BNK <- function(p, t, N_D){
+  n <- length(t)
+  bnk <- rep(0, n)
+  for (i in 1:n){
+    N_t_s <- N_t(i, p)
+    bnk[i] <- (N_D[i] - N_t_s)**2
+  }
+  
+  return(sum(bnk))
+}
+
+#Minimalize
+min_params <- nlm(f=BNK, p=p, t=t, N_D = df$Liczebnosc_skalowana)
+
+#Parameters
+est_N <- min_params$estimate[1]
+est_r <- min_params$estimate[2]
+est_K <- min_params$estimate[3]
+
+```
+
+From the minimization we obtained the optimal parameters equal to
+$$
+\overline{N_0} = 19.463209,
+$$
+$$
+\overline{r} = -2.757316,
+$$
+$$
+\overline{K} = -1424.408053.
+$$
+
+The solution fit on these estimated parameters obtained using least squares minimization is as follows:
+
+```{r lab10_wykres1, warning= FALSE, echo=FALSE}
+p_est <- c(est_N, est_r, est_K)
+n <- length(t)
+
+N_t_w <- rep(0, n)
+for(i in 1:n){
+  N_t_w[i] <- N_t(i, p_est)
+}
+
+df$Liczebnosc_estymacja <- N_t_w 
+
+plot(df$Liczebnosc_estymacja~df$Rok , type="b" , bty="l" , xlab="Year" , ylab="Population [K]" , col=rgb(0.02,0.4,0.1,0.7) , lwd=1 , pch=17)
+lines(df$Liczebnosc_skalowana~df$Rok , col=rgb(0.8,0.4,0.1,0.7) , lwd=1 , pch=19 , type="b" )
+ 
+# Add a legend
+legend("bottomright", 
+  legend = c("Estimation", "Real value"), 
+  col = c(rgb(0.2,0.4,0.1,0.7), 
+  rgb(0.8,0.4,0.1,0.7)), 
+  pch = c(17,19), 
+  bty = "n", 
+  pt.cex = 2, 
+  cex = 1.2, 
+  text.col = "black", 
+  horiz = F , 
+  inset = c(0.1, 0.1))
+```
+However, let's note that despite the fact that the estimated parameters do not meet the assumptions, the model fit is quite good. Now let's check the behavior of the algorithm for a smaller scaling with the same initial parameters ie. 
+$$
+\overline{N_D} = \frac{N_D}{100}, 
+$$
+$$
+p = (\overline{N_0}, r, K) = (\overline{N_D}(1), 0.01, 2\cdot \max{(\overline{N_D})}).
+$$
+
+
+```{r lab10_populacja_sym2, warning= FALSE, echo=FALSE}
+#Defining scaled values
+df$Liczebnosc_skalowana = df$Liczebnosc/100
+
+#Initial parameters
+N_0_s <- df$Liczebnosc_skalowana[1]
+r <- 0.01
+K <- 2*max(df$Liczebnosc_skalowana)
+
+p <- c(N_0_s, r, K)
+
+#Time sequence
+t <- 1950+seq(0,65,5)
+
+#Least squares loss function minimalize
+min_params <- nlm(f=BNK, p=p, t=t, N_D = df$Liczebnosc_skalowana)
+
+#Parameters
+est_N <- min_params$estimate[1]
+est_r <- min_params$estimate[2]
+est_K <- min_params$estimate[3]
+
+```
+
+From the minimization we obtained the optimal parameters equal to
+$$
+\overline{N_0} = 1946.33,
+$$
+$$
+\overline{r} = 0.1236176,
+$$
+$$
+\overline{K} = 9372.32
+$$
+
+We can see that while the estimated value of the initial population value has been the same only scaled, the other parameters have changed. The solution fit on these estimated parameters obtained using least squares minimization looks as follows:
+```{r lab10_wykres2, warning= FALSE, echo=FALSE}
+p_est <- c(est_N, est_r, est_K)
+n <- length(t)
+
+N_t_w <- rep(0, n)
+for(i in 1:n){
+  N_t_w[i] <- N_t(i, p_est)
+}
+
+df$Liczebnosc_estymacja <- N_t_w *100
+
+plot(df$Liczebnosc_estymacja~df$Rok , type="b" , bty="l" , xlab="Year" , ylab="Population" , col=rgb(0.02,0.4,0.1,0.7) , lwd=1 , pch=17)
+lines(df$Liczebnosc~df$Rok , col=rgb(0.8,0.4,0.1,0.7) , lwd=1 , pch=19 , type="b" )
+ 
+# Add a legend
+legend("bottomright", 
+  legend = c("Estimation", "Real value"), 
+  col = c(rgb(0.2,0.4,0.1,0.7), 
+  rgb(0.8,0.4,0.1,0.7)), 
+  pch = c(17,19), 
+  bty = "n", 
+  pt.cex = 2, 
+  cex = 1.2, 
+  text.col = "black", 
+  horiz = F , 
+  inset = c(0.1, 0.1))
+```
+
+
+As can be seen, the model fit with the new estimated parameters with a smaller scale is much worse. Evidently, this is affected by the overestimated values of the estimated parameters $\overline{r}$ and $\overline{K}$, which are much larger and correspond to the scale of the population size. However, the estimated parameters meet the model's assumptions of positivity. So let's check again for a larger scale with the same parameters ie. 
+$$
+\overline{N_D} = \frac{N_D}{1000000}, 
+$$
+$$
+p = (\overline{N_0}, r, K) = (\overline{N_D}(1), 0.01, 2\cdot \max{(\overline{N_D})}).
+$$
+
+
+```{r lab10_populacja_sym3, warning= FALSE, echo=FALSE}
+#Defining scaled values
+df$Liczebnosc_skalowana = df$Liczebnosc/1000000
+
+#Initial parameters
+N_0_s <- df$Liczebnosc_skalowana[1]
+r <- 0.01
+K <- 2*max(df$Liczebnosc_skalowana)
+
+p <- c(N_0_s, r, K)
+
+#Time sequence
+t <- 1950+seq(0,65,5)
+
+#Least squares loss minimalize
+min_params <- nlm(f=BNK, p=p, t=t, N_D = df$Liczebnosc_skalowana)
+
+#Parameters
+est_N <- min_params$estimate[1]
+est_r <- min_params$estimate[2]
+est_K <- min_params$estimate[3]
+
+```
+
+From the minimization we obtained the optimal parameters equal to
+$$
+\overline{N_0} = 0.1338027,
+$$
+$$
+\overline{r} = 0.4714063,
+$$
+$$
+\overline{K} = 0.4734332
+$$
+
+Now, in turn, the estimation of the initial population value parameter has decreased, and the other parameters have increased. The value of the $\overline{K}$ parameter is close to the value of the $\overline{r}$ parameter. The solution fit on these estimated parameters obtained using least squares minimization is as follows:
+```{r lab10_wykres3, warning= FALSE, echo=FALSE}
+p_est <- c(est_N, est_r, est_K)
+n <- length(t)
+
+N_t_w <- rep(0, n)
+for(i in 1:n){
+  N_t_w[i] <- N_t(i, p_est)
+}
+
+df$Liczebnosc_estymacja <- N_t_w
+
+plot(df$Liczebnosc_estymacja~df$Rok , type="b" , bty="l" , xlab="Year" , ylab="Population [M]" , col=rgb(0.02,0.4,0.1,0.7) , lwd=1 , pch=17)
+lines(df$Liczebnosc_skalowana~df$Rok , col=rgb(0.8,0.4,0.1,0.7) , lwd=1 , pch=19 , type="b" )
+ 
+# Add a legend
+legend("bottomright", 
+  legend = c("Estimation", "Real value"), 
+  col = c(rgb(0.2,0.4,0.1,0.7), 
+  rgb(0.8,0.4,0.1,0.7)), 
+  pch = c(17,19), 
+  bty = "n", 
+  pt.cex = 2, 
+  cex = 1.2, 
+  text.col = "black", 
+  horiz = F , 
+  inset = c(0.1, 0.1))
+```
+The model fit for such an estimation is similar to that for the initial scale. Moreover, the estimated parameters are positive so they are consistent with the model assumptions. This indicates that the Newton-type optimization algorithm is more sensitive for functions taking high values and it is more difficult to obtain optimal parameter estimates in such situations. This algorithm is based on iterative counting of argument values using the Taylor series of a function of order two, so naturally, at high values of this function, the estimates may contain a large error threshold. 
+
+So let's still try for the same scaling to take other starting parameters, i.e. 
+$$
+\overline{N_D} = \frac{N_D}{10000}, 
+$$
+$$
+p = (\overline{N_0}, r, K) = (\overline{N_D}(1), 1, 10\cdot \max{(\overline{N_D})}).
+$$
+```{r lab10_populacja_sym4, warning= FALSE, echo=FALSE}
+#Defining scaled values
+df$Liczebnosc_skalowana = df$Liczebnosc/1000000
+
+#Initial parameters
+N_0_s <- df$Liczebnosc_skalowana[1]
+r <- 1
+K <- 10*max(df$Liczebnosc_skalowana)
+
+p <- c(N_0_s, r, K)
+
+#Time sequence
+t <- 1950+seq(0,65,5)
+
+#Least squares loss minimalize
+min_params <- nlm(f=BNK, p=p, t=t, N_D = df$Liczebnosc_skalowana)
+
+#Parameters
+est_N <- min_params$estimate[1]
+est_r <- min_params$estimate[2]
+est_K <- min_params$estimate[3]
+
+```
+
+From the minimization we obtained the optimal parameters equal to
+$$
+\overline{N_0} = -102.9745
+$$
+$$
+\overline{r} = -80.09881
+$$
+$$
+\overline{K} = -78.44528
+$$
+
+Our parameters are inconsistent with the assumptions. Even the initial value of the population size is negative. Let's check the situation if we reduce the initial parameters accordingly ie:
+$$
+\overline{N_D} = \frac{N_D}{10000}, 
+$$
+$$
+p = (\overline{N_0}, r, K) = (\overline{N_D}(1), 0.0001, 0.1\cdot \max{(\overline{N_D})}).
+$$
+```{r lab10_populacja_sym5, warning= FALSE, echo=FALSE}
+#Defining scaled values
+df$Liczebnosc_skalowana = df$Liczebnosc/1000000
+
+#Initial parameters
+N_0_s <- df$Liczebnosc_skalowana[1]
+r <- 0.0001
+K <- 0.1*max(df$Liczebnosc_skalowana)
+
+p <- c(N_0_s, r, K)
+
+#Time sequence
+t <- 1950+seq(0,65,5)
+
+#Least squares loss minimalize
+min_params <- nlm(f=BNK, p=p, t=t, N_D = df$Liczebnosc_skalowana)
+
+#Parameters
+est_N <- min_params$estimate[1]
+est_r <- min_params$estimate[2]
+est_K <- min_params$estimate[3]
+
+```
+
+From the minimization we obtained the optimal parameters equal to
+$$
+\overline{N_0} = 0.2972155
+$$
+$$
+\overline{r} = -0.001612179
+$$
+$$
+\overline{K} = 0.1506714
+$$
+
+
+
+
+
+
+So this time further the parameter $\overline{r}$ is inconsistent with the assumption. Nevertheless, let's plot the graph of the function with these parameters.  
+
+```{r lab10_wykres5, warning= FALSE, echo=FALSE}
+p_est <- c(est_N, est_r, est_K)
+n <- length(t)
+
+N_t_w <- rep(0, n)
+for(i in 1:n){
+  N_t_w[i] <- N_t(i, p_est)
+}
+
+df$Liczebnosc_estymacja <- N_t_w
+
+plot(df$Liczebnosc_estymacja~df$Rok , type="b" , bty="l" , xlab="Year" , ylab="Population [M]" , col=rgb(0.02,0.4,0.1,0.7) , lwd=1 , pch=17)
+lines(df$Liczebnosc_skalowana~df$Rok , col=rgb(0.8,0.4,0.1,0.7) , lwd=1 , pch=19 , type="b" )
+ 
+# Add a legend
+legend("bottomright", 
+  legend = c("Estimation", "Real value"), 
+  col = c(rgb(0.2,0.4,0.1,0.7), 
+  rgb(0.8,0.4,0.1,0.7)), 
+  pch = c(17,19), 
+  bty = "n", 
+  pt.cex = 2, 
+  cex = 1.2, 
+  text.col = "black", 
+  horiz = F , 
+  inset = c(0.1, 0.1))
+```
+It can be seen that it is indeed not fitted to the data and the results are not accurate. It turns out, then, that the best combination is to adopt high scaling and properly adjusted initial parameters. Scaling too low can lead to incorrect parameter estimates that are inconsistent with the assumptions, as can adopting inappropriate initial conditions. 

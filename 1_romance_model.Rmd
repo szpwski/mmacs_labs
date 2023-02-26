@@ -1,0 +1,170 @@
+---
+title: "Analysis of the romance model"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Analysis of the romance model of romance using Romeo and Juliet as an example.
+
+Strogatz derived a simple model, based on a system of ordinary differential equations, to describe the dynamics of a romance between two people. We will consider a discrete version of the model using the Romeo and Juliet romance as an example. A deterministic, dynamic, linear model with discrete time looks as follows.
+
+\begin{align*}R_{n+1} = a_{R}R_{n} + p_{R}L_{n}\\
+L_{n+1} = a_{L}L_{n} + p_{L}R_{n}
+\end{align*}
+
+Interpretation of coefficients:
+\begin{itemize}
+\item $R_n, L_n > 0$ means love;
+\item $R_n, L_n < 0$ means hate;
+\item $R_n, L_n = 0$ denotes neutrality;
+\item $0 < a_{R}, a_{L} < 1$ this initial feeling becomes neutral over time;
+\item $a_{R}, a_{L} > 1$ then the initial feeling becomes stronger over time;
+\item $a_{R}, a_{L} = 1$ this initial feeling is unchanged;
+\item $p_R, p_L > 0$ then the feeling of R (L) increases with love L (R) or weakens with hate L (R);
+\item $p_R, p_L < 0$ then the feeling of R (L) weakens at love L (R) or increases at hate L(R);
+\item $p_R, p_L = 0$ the mutual feeling does not matter.
+\end{itemize}
+
+We are simulating this model on a time interval of 100 days ($T = [0,100], \Delta t = 1$), so we will start by creating functions for the model and graphs.
+
+```{r model_definition, warning= FALSE, echo=FALSE}
+library(ggplot2)
+
+model <- function(x, y, a1, a2, b1, b2, time, delta){
+  #x - starting point 1
+  #y - starting point 2
+  #a1 - coefficient 1 for x
+  #a2 - coefficient 2 for x
+  #b1 - coefficient 1 for y
+  #b2 - coefficient 2 for y
+  #time - period
+  #delta - difference of period step
+  
+  # declare list to store results
+  r <- rep(0, time+delta)
+  l <- rep(0, time+delta)
+  timestamp <- rep(0, time+delta)
+  
+  r[1] = x
+  l[1] = y
+  
+  for (i in (1 + delta):(time+delta)){
+    r[i] <- a1 * r[i-1] + a2 * l[i-1]
+    l[i] <- b1 * l[i-1] + b2 * r[i-1]
+    timestamp[i] <- timestamp[i-1]  + delta
+  }
+  
+  result <- do.call(rbind, Map(data.frame, Czas = timestamp, Romeo = r, Julia = l))
+  
+  
+  
+  return(result)
+}
+
+reshape <- function(result){
+  result_reshape = data.frame(Czas = result$Czas, Uczucie = c(result$Romeo, result$Julia),Osoba = c(rep("Romeo", nrow(result)), rep("Julia", nrow(result))))
+  
+  return(result_reshape)
+}
+```
+
+
+First, the simulation will be carried out for the parameters:
+$$R_0 = L_0 = 1, a_R = 0.5, a_L = 0.7, p_R = 0.7, p_L = 0.9$$
+
+```{r simulation_1, warning= FALSE, echo=FALSE}
+# initial parameters
+r_0 <- 1
+l_0 <- 1
+a_r <- 0.5
+a_l <- 0.7
+p_r <- 0.7
+p_l <- 0.7
+time <- 100
+delta <- 1
+
+s1 <- model(r_0, l_0, a_r, p_r, a_l, p_l, time, delta)
+```
+
+
+```{r plotting_simulation_1, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(reshape(s1), aes(Czas, Uczucie, col=Osoba)) + geom_line() + ggtitle("Feeling forces as functions of time")
+
+ggplot(s1, aes(Romeo, Julia)) + geom_line() + ggtitle("Phase portrait")
+
+```
+
+We start with the assumption that both Romeo and Juliet are initially in a state of not very strong
+love for each other ($R_0 = L_0 = 1$). The parameters $a_R$, $a_L$ take values less than 1,
+therefore, if Romeo and Juliet were to respond only to the dynamics of their own feelings (model (1), case
+$p_R = p_L = 0$), then their feelings toward each other would become neutral.
+In our case, Romeo and Juliet respond to each other, but rather tentatively ($p_R$ and $p_L$ are positive, with the strength of Juliet's reaction to Romeo's feelings being significant over time). We see that with this combination, their affection increases exponentially and goes to infinity at $n \rightarrow \infty$. 
+
+
+Simulation two is carried out for the parameters:
+$$R_0 = L_0 = 1, a_R = 1.0, a_L = 1.0, p_R = 0.2, p_L = -0.2$$
+
+```{r simulation_2, warning= FALSE, echo=FALSE}
+# initial parameters
+r_0 <- 1
+l_0 <- 1
+a_r <- 1.0
+a_l <- 1.0
+p_r <- 0.2
+p_l <- -0.2
+time <- 100
+delta <- 1
+
+s2 <- model(r_0, l_0, a_r, p_r, a_l, p_l, time, delta)
+```
+
+
+```{r plotting_simulation_2, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(reshape(s2), aes(Czas, Uczucie, col=Osoba)) + geom_line() + ggtitle("Feeling forces as functions of time")
+
+attach(s2)
+#ggplot(s2[order(s2$Romeo, s2$Julia), ], aes(Romeo, Julia)) + geom_point() + geom_line() + ggtitle("Portret fazowy")
+plot(s2$Romeo, s2$Julia, type='l', xlab='Romeo', ylab='Julia', main='Phase portrait')
+```
+Here we also start with the assumption that both Romeo and Juliet are initially in a state of not very strong
+love for each other ($R_0 = L_0 = 1$). The parameters $a_R$, $a_L$ take values = 1
+therefore, if Romeo and Juliet were to respond only to the dynamics of their own feelings (model (1), case
+$p_R = p_L = 0$), then their feelings toward each other would be constantly at = 1.
+In our case, Romeo and Juliet react to each other with the same strength in a slight way the result of which we see a mood swing, because when Romeo's feelings for Juliet increase then hers weaken and vice versa. Here we have a divergence in time. 
+
+
+Second simulation for parameters:
+$$R_0 = L_0 = 1, a_R = 0.5, a_L = 0.8, p_R = 0.2, p_L = 0.5$$
+
+```{r simulation_3, warning= FALSE, echo=FALSE}
+# initial parameters
+r_0 <- 1
+l_0 <- 1
+a_r <- 0.5
+a_l <- 0.8
+p_r <- 0.2
+p_l <- 0.5
+time <- 100
+delta <- 1
+
+s3 <- model(r_0, l_0, a_r, p_r, a_l, p_l, time, delta)
+```
+
+
+```{r plotting_simulation_3, warning=FALSE, echo=FALSE, out.width="50%"}
+ggplot(reshape(s3), aes(Czas, Uczucie, col=Osoba)) + geom_line() + ggtitle("Feeling forces as functions of time")
+
+ggplot(s3, aes(Romeo, Julia)) + geom_line() + ggtitle("Phase portait")
+
+```
+
+
+Again, we start with the same assumption that both Romeo and Juliet are initially in a state of not very strong
+love for each other ($R_0 = L_0 = 1$). From the values of $a_R, p_R$, we can read that Romeo's love for Juliet will weaken under the assumption of positive initial love between Romeo and Juliet until at $n \rightarrow \infty$ it approaches zero. In turn, from the parameters $a_L, p_L$ we will get that at a positive value of Romeo and Juliet's affection (initial) Juliet's love will increase. In such a scenario, over time, Romeo's affection will become neutral, and Juliet's will not increase much. 
+
